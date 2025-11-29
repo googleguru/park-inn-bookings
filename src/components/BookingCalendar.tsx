@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Calendar } from "@/components/ui/calendar";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { CheckCircle, Lock, Clock } from "lucide-react";
 import BookingModal from "./BookingModal";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 
 type DateStatus = "available" | "advanced" | "booked";
 
@@ -12,12 +13,27 @@ const BookingCalendar = () => {
   const [date, setDate] = useState<Date | undefined>(new Date());
   const [showBookingModal, setShowBookingModal] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  const [bookedDates, setBookedDates] = useState<Record<string, DateStatus>>({});
 
-  // Mock data - this will be replaced with Google Calendar integration
-  const bookedDates: Record<string, DateStatus> = {
-    "2025-12-15": "booked",
-    "2025-12-20": "advanced",
-    "2025-12-25": "booked",
+  useEffect(() => {
+    fetchBookings();
+  }, []);
+
+  const fetchBookings = async () => {
+    const { data, error } = await supabase
+      .from("bookings")
+      .select("booking_date, status");
+
+    if (error) {
+      console.error("Error fetching bookings:", error);
+      return;
+    }
+
+    const bookingsMap: Record<string, DateStatus> = {};
+    data?.forEach((booking) => {
+      bookingsMap[booking.booking_date] = booking.status as DateStatus;
+    });
+    setBookedDates(bookingsMap);
   };
 
   const getDateStatus = (date: Date): DateStatus => {
@@ -118,9 +134,6 @@ const BookingCalendar = () => {
               />
             </div>
 
-            <p className="text-center text-sm text-muted-foreground mt-6">
-              Note: Google Calendar integration will be enabled with backend setup
-            </p>
           </Card>
         </div>
       </div>
@@ -129,6 +142,7 @@ const BookingCalendar = () => {
         open={showBookingModal}
         onOpenChange={setShowBookingModal}
         selectedDate={selectedDate}
+        onBookingSuccess={fetchBookings}
       />
     </section>
   );
