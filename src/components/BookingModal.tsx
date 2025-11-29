@@ -19,17 +19,20 @@ import {
 } from "@/components/ui/select";
 import { toast } from "sonner";
 import { Calendar } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 
 interface BookingModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   selectedDate: Date | null;
+  onBookingSuccess: () => void;
 }
 
 const BookingModal = ({
   open,
   onOpenChange,
   selectedDate,
+  onBookingSuccess,
 }: BookingModalProps) => {
   const [formData, setFormData] = useState({
     name: "",
@@ -41,12 +44,35 @@ const BookingModal = ({
     notes: "",
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Here we'll integrate with backend to create Google Calendar event
+    if (!selectedDate) return;
+
+    const bookingDate = selectedDate.toISOString().split("T")[0];
+
+    const { error } = await supabase.from("bookings").insert({
+      booking_date: bookingDate,
+      status: "booked",
+      name: formData.name,
+      mobile: formData.mobile,
+      email: formData.email,
+      event_type: formData.eventType,
+      guest_count: formData.guests ? parseInt(formData.guests) : null,
+      time_slot: formData.timeSlot,
+      notes: formData.notes,
+    });
+
+    if (error) {
+      toast.error("Failed to create booking. Please try again.");
+      console.error("Error creating booking:", error);
+      return;
+    }
+
     toast.success(
-      "Thank you for choosing Dhanlakshmi Park Inn! Our team will contact you shortly to confirm the details.",
+      `Booking confirmed at Dhanlakshmi Park Inn for ${formatDate(
+        selectedDate
+      )}. Our team will contact you soon.`,
       {
         duration: 5000,
       }
@@ -63,6 +89,7 @@ const BookingModal = ({
       notes: "",
     });
 
+    onBookingSuccess();
     onOpenChange(false);
   };
 
