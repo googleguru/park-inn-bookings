@@ -25,8 +25,10 @@ export type Database = {
           mobile: string | null
           name: string | null
           notes: string | null
+          payment_link: string | null
           status: string
           time_slot: string | null
+          venue_section: string
           updated_at: string
         }
         Insert: {
@@ -39,8 +41,10 @@ export type Database = {
           mobile?: string | null
           name?: string | null
           notes?: string | null
+          payment_link?: string | null
           status: string
           time_slot?: string | null
+          venue_section?: string
           updated_at?: string
         }
         Update: {
@@ -53,8 +57,10 @@ export type Database = {
           mobile?: string | null
           name?: string | null
           notes?: string | null
+          payment_link?: string | null
           status?: string
           time_slot?: string | null
+          venue_section?: string
           updated_at?: string
         }
         Relationships: []
