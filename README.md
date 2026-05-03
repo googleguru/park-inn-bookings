@@ -1,73 +1,95 @@
-# Welcome to your Lovable project
+# Dhanlakshmi Park Inn - Event Booking Website
 
-## Project info
+A modern event venue booking platform for Dhanlakshmi Park Inn, allowing customers to browse availability, check pricing, and book their special events online.
 
-**URL**: https://lovable.dev/projects/ca5c0713-8c0b-49a2-86f6-b997e2bd686b
+## About
 
-## How can I edit this code?
+This is a professional event booking website designed to showcase the Dhanlakshmi Park Inn venue and provide an intuitive booking experience for customers looking to host weddings, corporate events, and celebrations.
 
-There are several ways of editing your application.
+## Getting Started
 
-**Use Lovable**
+### Prerequisites
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/ca5c0713-8c0b-49a2-86f6-b997e2bd686b) and start prompting.
+- Node.js (v18 or higher)
+- npm or bun package manager
 
-Changes made via Lovable will be committed automatically to this repo.
+### Installation
 
-**Use your preferred IDE**
-
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
+Clone the repository and install dependencies:
 
 ```sh
-# Step 1: Clone the repository using the project's Git URL.
+# Clone the repository
 git clone <YOUR_GIT_URL>
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+# Navigate to the project directory
+cd park-inn-bookings
 
-# Step 3: Install the necessary dependencies.
-npm i
+# Install dependencies
+npm install
+```
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
+### Development
+
+Start the development server:
+
+```sh
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+The application will be available at `http://localhost:5173`
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+### Building for Production
 
-**Use GitHub Codespaces**
+```sh
+npm run build
+```
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
-
-## What technologies are used for this project?
+## Technologies Used
 
 This project is built with:
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+- **Vite** - Fast frontend build tool and dev server
+- **React** - UI library
+- **TypeScript** - Static type checking
+- **Tailwind CSS** - Utility-first CSS framework
+- **shadcn/ui** - High-quality React components
+- **Supabase** - Backend database and authentication
+- **React Query** - Server state management
+- **React Router** - Client-side routing
 
-## How can I deploy this project?
+## Project Structure
 
-Simply open [Lovable](https://lovable.dev/projects/ca5c0713-8c0b-49a2-86f6-b997e2bd686b) and click on Share -> Publish.
+```
+src/
+├── components/     # Reusable React components
+├── pages/          # Page components
+├── hooks/          # Custom React hooks
+├── lib/            # Utility functions
+├── integrations/   # External service integrations
+├── App.tsx         # Main application component
+└── main.tsx        # Application entry point
+```
 
-## Can I connect a custom domain to my Lovable project?
+## Available Scripts
 
-Yes, you can!
+- `npm run dev` - Start development server
+- `npm run build` - Build for production
+- `npm run lint` - Run ESLint
+- `npm run preview` - Preview production build
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+## Deployment
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+This project can be deployed to various platforms:
+
+- **Vercel** - Recommended for best performance
+- **Netlify**
+- **GitHub Pages**
+- **Traditional hosting** - Any hosting that supports Node.js
+
+## Contributing
+
+Feel free to submit issues and enhancement requests!
+
+## License
+
+This project is private and proprietary to Dhanlakshmi Park Inn.
