@@ -79,7 +79,13 @@ src/
 
 ## Deployment
 
-This project can be deployed to various platforms:
+This project is configured to deploy to GitHub Pages.
+
+- **Automatic deploy**: The GitHub Actions workflow in `.github/workflows/deploy.yml` builds and publishes the site from `main`.
+- **Manual deploy**: Run `npm install` then `npm run deploy`.
+- **Site URL**: `https://googleguru.github.io/park-inn-bookings/`
+
+Supported deployment options:
 
 - **Vercel** - Recommended for best performance
 - **Netlify**
