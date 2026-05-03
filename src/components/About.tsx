@@ -28,7 +28,7 @@ const About = () => {
     {
       icon: UtensilsCrossed,
       title: "Catering Tie-ups",
-      description: "Premium catering partners for delicious experiences",
+      description: "Trusted catering partners for delicious experiences",
     },
     {
       icon: Music,
