@@ -100,6 +100,17 @@ This project is configured to deploy to GitHub Pages.
 - **Manual deploy**: Run `npm install` then `npm run deploy`.
 - **Site URL**: `https://googleguru.github.io/park-inn-bookings/`
 
+### GitHub Pages validation checklist
+
+After each deploy, verify:
+
+1. Repository **Settings → Pages** is configured to serve from the `gh-pages` branch (`/root`).
+2. The latest **Deploy to GitHub Pages** workflow run on `main` completed successfully.
+3. URL matrix:
+   - Home: `https://googleguru.github.io/park-inn-bookings/`
+   - Admin: `https://googleguru.github.io/park-inn-bookings/#/admin`
+   - Unknown route should show app 404 page: `https://googleguru.github.io/park-inn-bookings/#/does-not-exist`
+
 Supported deployment options:
 
 - **Vercel** - Recommended for best performance
