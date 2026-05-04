@@ -104,7 +104,7 @@ This project is configured to deploy to GitHub Pages.
 
 After each deploy, verify:
 
-1. Repository **Settings → Pages** is configured to serve from the `gh-pages` branch (`/root`).
+1. Repository **Settings → Pages** is configured to **Build and deployment: GitHub Actions**.
 2. The latest **Deploy to GitHub Pages** workflow run on `main` completed successfully.
 3. URL matrix:
    - Home: `https://googleguru.github.io/park-inn-bookings/`
