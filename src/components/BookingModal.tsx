@@ -53,7 +53,7 @@ const BookingModal = ({
 
     const { error } = await supabase.from("bookings").insert({
       booking_date: bookingDate,
-      status: "booked",
+      status: "pending",
       name: formData.name,
       mobile: formData.mobile,
       email: formData.email,
@@ -70,9 +70,9 @@ const BookingModal = ({
     }
 
     toast.success(
-      `Booking confirmed at Dhanlakshmi Park Inn for ${formatDate(
+      `Booking request submitted at Dhanlakshmi Park Inn for ${formatDate(
         selectedDate
-      )}. Our team will contact you soon.`,
+      )}. Our team will review and contact you soon.`,
       {
         duration: 5000,
       }

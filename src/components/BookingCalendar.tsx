@@ -7,7 +7,7 @@ import BookingModal from "./BookingModal";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 
-type DateStatus = "available" | "advanced" | "booked";
+type DateStatus = "available" | "pending" | "approved" | "rejected" | "booked";
 
 const BookingCalendar = () => {
   const [date, setDate] = useState<Date | undefined>(new Date());
@@ -46,7 +46,7 @@ const BookingCalendar = () => {
 
     const status = getDateStatus(date);
 
-    if (status === "booked" || status === "advanced") {
+    if (status === "booked" || status === "approved") {
       toast.error(
         "This date is already booked at Dhanlakshmi Park Inn. Please choose another date 💛",
         {
@@ -62,7 +62,8 @@ const BookingCalendar = () => {
 
   const modifiers = {
     booked: (date: Date) => getDateStatus(date) === "booked",
-    advanced: (date: Date) => getDateStatus(date) === "advanced",
+    approved: (date: Date) => getDateStatus(date) === "approved",
+    pending: (date: Date) => getDateStatus(date) === "pending",
     available: (date: Date) => getDateStatus(date) === "available",
   };
 
@@ -72,7 +73,12 @@ const BookingCalendar = () => {
       color: "white",
       fontWeight: "bold",
     },
-    advanced: {
+    approved: {
+      backgroundColor: "hsl(var(--destructive))",
+      color: "white",
+      fontWeight: "bold",
+    },
+    pending: {
       backgroundColor: "hsl(var(--warning))",
       color: "hsl(var(--warning-foreground))",
       fontWeight: "bold",

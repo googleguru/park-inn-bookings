@@ -20,12 +20,13 @@ export type Database = {
           created_at: string
           email: string | null
           event_type: string | null
+          google_calendar_event_id: string | null
           guest_count: number | null
           id: string
           mobile: string | null
           name: string | null
           notes: string | null
-          status: string
+          status: "pending" | "approved" | "rejected" | "booked"
           time_slot: string | null
           updated_at: string
         }
@@ -34,12 +35,13 @@ export type Database = {
           created_at?: string
           email?: string | null
           event_type?: string | null
+          google_calendar_event_id?: string | null
           guest_count?: number | null
           id?: string
           mobile?: string | null
           name?: string | null
           notes?: string | null
-          status: string
+          status: "pending" | "approved" | "rejected" | "booked"
           time_slot?: string | null
           updated_at?: string
         }
@@ -48,12 +50,13 @@ export type Database = {
           created_at?: string
           email?: string | null
           event_type?: string | null
+          google_calendar_event_id?: string | null
           guest_count?: number | null
           id?: string
           mobile?: string | null
           name?: string | null
           notes?: string | null
-          status?: string
+          status?: "pending" | "approved" | "rejected" | "booked"
           time_slot?: string | null
           updated_at?: string
         }
