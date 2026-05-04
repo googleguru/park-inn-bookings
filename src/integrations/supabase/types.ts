@@ -7,15 +7,126 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instantiate createClient with right options
-  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
     PostgrestVersion: "13.0.5"
   }
   public: {
     Tables: {
+      admin_roles: {
+        Row: {
+          id: string
+          email: string
+          role: "super_admin" | "admin" | "finance_manager"
+          is_active: boolean
+          last_login: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          email: string
+          role?: "super_admin" | "admin" | "finance_manager"
+          is_active?: boolean
+          last_login?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          email?: string
+          role?: "super_admin" | "admin" | "finance_manager"
+          is_active?: boolean
+          last_login?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      audit_logs: {
+        Row: {
+          id: string
+          admin_email: string
+          admin_role: string | null
+          action: string
+          resource_type: string
+          resource_id: string | null
+          old_values: Json | null
+          new_values: Json | null
+          ip_address: string | null
+          user_agent: string | null
+          success: boolean
+          error_message: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          admin_email: string
+          admin_role?: string | null
+          action: string
+          resource_type: string
+          resource_id?: string | null
+          old_values?: Json | null
+          new_values?: Json | null
+          ip_address?: string | null
+          user_agent?: string | null
+          success?: boolean
+          error_message?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          admin_email?: string
+          admin_role?: string | null
+          action?: string
+          resource_type?: string
+          resource_id?: string | null
+          old_values?: Json | null
+          new_values?: Json | null
+          ip_address?: string | null
+          user_agent?: string | null
+          success?: boolean
+          error_message?: string | null
+          created_at?: string
+        }
+        Relationships: []
+      }
+      blocked_users: {
+        Row: {
+          id: string
+          email: string
+          name: string | null
+          reason: string | null
+          blocked_by: string
+          is_active: boolean
+          blocked_at: string
+          unblocked_at: string | null
+        }
+        Insert: {
+          id?: string
+          email: string
+          name?: string | null
+          reason?: string | null
+          blocked_by: string
+          is_active?: boolean
+          blocked_at?: string
+          unblocked_at?: string | null
+        }
+        Update: {
+          id?: string
+          email?: string
+          name?: string | null
+          reason?: string | null
+          blocked_by?: string
+          is_active?: boolean
+          blocked_at?: string
+          unblocked_at?: string | null
+        }
+        Relationships: []
+      }
       bookings: {
         Row: {
+          advance_paid: number | null
+          amount: number | null
           booking_date: string
           created_at: string
           email: string | null
@@ -23,14 +134,18 @@ export type Database = {
           google_calendar_event_id: string | null
           guest_count: number | null
           id: string
+          is_blocked: boolean | null
           mobile: string | null
           name: string | null
           notes: string | null
+          payment_status: "pending" | "paid" | "partial" | "refunded" | "cancelled" | null
           status: "pending" | "approved" | "rejected" | "booked"
           time_slot: string | null
           updated_at: string
         }
         Insert: {
+          advance_paid?: number | null
+          amount?: number | null
           booking_date: string
           created_at?: string
           email?: string | null
@@ -38,14 +153,18 @@ export type Database = {
           google_calendar_event_id?: string | null
           guest_count?: number | null
           id?: string
+          is_blocked?: boolean | null
           mobile?: string | null
           name?: string | null
           notes?: string | null
+          payment_status?: "pending" | "paid" | "partial" | "refunded" | "cancelled" | null
           status: "pending" | "approved" | "rejected" | "booked"
           time_slot?: string | null
           updated_at?: string
         }
         Update: {
+          advance_paid?: number | null
+          amount?: number | null
           booking_date?: string
           created_at?: string
           email?: string | null
@@ -53,14 +172,117 @@ export type Database = {
           google_calendar_event_id?: string | null
           guest_count?: number | null
           id?: string
+          is_blocked?: boolean | null
           mobile?: string | null
           name?: string | null
           notes?: string | null
+          payment_status?: "pending" | "paid" | "partial" | "refunded" | "cancelled" | null
           status?: "pending" | "approved" | "rejected" | "booked"
           time_slot?: string | null
           updated_at?: string
         }
         Relationships: []
+      }
+      event_pricing: {
+        Row: {
+          id: string
+          event_type: string
+          base_price: number
+          per_guest_price: number
+          minimum_guests: number
+          is_active: boolean
+          description: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          event_type: string
+          base_price?: number
+          per_guest_price?: number
+          minimum_guests?: number
+          is_active?: boolean
+          description?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          event_type?: string
+          base_price?: number
+          per_guest_price?: number
+          minimum_guests?: number
+          is_active?: boolean
+          description?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      ledger_entries: {
+        Row: {
+          id: string
+          booking_id: string | null
+          entry_type: "booking" | "payment" | "advance" | "refund" | "adjustment"
+          description: string
+          user_email: string | null
+          user_name: string | null
+          event_type: string | null
+          event_date: string | null
+          debit_amount: number
+          credit_amount: number
+          running_balance: number
+          payment_method: "cash" | "card" | "upi" | "bank_transfer" | "cheque" | "online" | null
+          reference_number: string | null
+          notes: string | null
+          created_by: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          booking_id?: string | null
+          entry_type: "booking" | "payment" | "advance" | "refund" | "adjustment"
+          description: string
+          user_email?: string | null
+          user_name?: string | null
+          event_type?: string | null
+          event_date?: string | null
+          debit_amount?: number
+          credit_amount?: number
+          running_balance?: number
+          payment_method?: "cash" | "card" | "upi" | "bank_transfer" | "cheque" | "online" | null
+          reference_number?: string | null
+          notes?: string | null
+          created_by: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          booking_id?: string | null
+          entry_type?: "booking" | "payment" | "advance" | "refund" | "adjustment"
+          description?: string
+          user_email?: string | null
+          user_name?: string | null
+          event_type?: string | null
+          event_date?: string | null
+          debit_amount?: number
+          credit_amount?: number
+          running_balance?: number
+          payment_method?: "cash" | "card" | "upi" | "bank_transfer" | "cheque" | "online" | null
+          reference_number?: string | null
+          notes?: string | null
+          created_by?: string
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ledger_entries_booking_id_fkey"
+            columns: ["booking_id"]
+            isOneToOne: false
+            referencedRelation: "bookings"
+            referencedColumns: ["id"]
+          }
+        ]
       }
     }
     Views: {
@@ -79,7 +301,6 @@ export type Database = {
 }
 
 type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">
-
 type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "public">]
 
 export type Tables<
