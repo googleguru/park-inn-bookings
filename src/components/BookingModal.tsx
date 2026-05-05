@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -20,12 +20,14 @@ import {
 import { toast } from "sonner";
 import { Calendar } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import type { ClientUser } from "@/contexts/ClientAuthContext";
 
 interface BookingModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   selectedDate: Date | null;
   onBookingSuccess: () => void;
+  clientUser: ClientUser | null;
 }
 
 const BookingModal = ({
@@ -33,6 +35,7 @@ const BookingModal = ({
   onOpenChange,
   selectedDate,
   onBookingSuccess,
+  clientUser,
 }: BookingModalProps) => {
   const [formData, setFormData] = useState({
     name: "",
@@ -43,6 +46,16 @@ const BookingModal = ({
     timeSlot: "",
     notes: "",
   });
+
+  useEffect(() => {
+    if (clientUser) {
+      setFormData(prev => ({
+        ...prev,
+        name: clientUser.name || prev.name,
+        email: clientUser.email || prev.email,
+      }));
+    }
+  }, [clientUser, open]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -70,25 +83,11 @@ const BookingModal = ({
     }
 
     toast.success(
-      `Booking request submitted at Dhanlakshmi Park Inn for ${formatDate(
-        selectedDate
-      )}. Our team will review and contact you soon.`,
-      {
-        duration: 5000,
-      }
+      `Booking request submitted for ${formatDate(selectedDate)}. Our team will review and contact you soon.`,
+      { duration: 5000 }
     );
 
-    // Reset form
-    setFormData({
-      name: "",
-      mobile: "",
-      email: "",
-      eventType: "",
-      guests: "",
-      timeSlot: "",
-      notes: "",
-    });
-
+    setFormData({ name: "", mobile: "", email: "", eventType: "", guests: "", timeSlot: "", notes: "" });
     onBookingSuccess();
     onOpenChange(false);
   };
@@ -96,10 +95,7 @@ const BookingModal = ({
   const formatDate = (date: Date | null) => {
     if (!date) return "";
     return date.toLocaleDateString("en-US", {
-      weekday: "long",
-      year: "numeric",
-      month: "long",
-      day: "numeric",
+      weekday: "long", year: "numeric", month: "long", day: "numeric",
     });
   };
 
@@ -107,14 +103,24 @@ const BookingModal = ({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="text-2xl">
-            Let's Plan Your Event
-          </DialogTitle>
+          <DialogTitle className="text-2xl">Let's Plan Your Event</DialogTitle>
           <DialogDescription className="flex items-center gap-2 text-base">
             <Calendar className="w-4 h-4 text-primary" />
             <span>{formatDate(selectedDate)}</span>
           </DialogDescription>
         </DialogHeader>
+
+        {clientUser && (
+          <div className="flex items-center gap-2 rounded-lg bg-muted px-3 py-2 text-xs text-muted-foreground">
+            {clientUser.avatarUrl && (
+              <img src={clientUser.avatarUrl} alt="" className="h-5 w-5 rounded-full" />
+            )}
+            Booking as <span className="font-medium text-foreground">{clientUser.email}</span>
+            <span className="ml-auto text-[10px] bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-300 px-1.5 py-0.5 rounded">
+              Pending admin approval
+            </span>
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -124,9 +130,7 @@ const BookingModal = ({
                 id="name"
                 required
                 value={formData.name}
-                onChange={(e) =>
-                  setFormData({ ...formData, name: e.target.value })
-                }
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                 placeholder="Your name"
               />
             </div>
@@ -138,9 +142,7 @@ const BookingModal = ({
                 type="tel"
                 required
                 value={formData.mobile}
-                onChange={(e) =>
-                  setFormData({ ...formData, mobile: e.target.value })
-                }
+                onChange={(e) => setFormData({ ...formData, mobile: e.target.value })}
                 placeholder="+91 XXXXX XXXXX"
               />
             </div>
@@ -153,9 +155,9 @@ const BookingModal = ({
               type="email"
               required
               value={formData.email}
-              onChange={(e) =>
-                setFormData({ ...formData, email: e.target.value })
-              }
+              readOnly={!!clientUser}
+              className={clientUser ? "bg-muted cursor-not-allowed" : ""}
+              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
               placeholder="your.email@example.com"
             />
           </div>
@@ -166,9 +168,7 @@ const BookingModal = ({
               <Select
                 required
                 value={formData.eventType}
-                onValueChange={(value) =>
-                  setFormData({ ...formData, eventType: value })
-                }
+                onValueChange={(value) => setFormData({ ...formData, eventType: value })}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select event type" />
@@ -191,9 +191,7 @@ const BookingModal = ({
                 type="number"
                 required
                 value={formData.guests}
-                onChange={(e) =>
-                  setFormData({ ...formData, guests: e.target.value })
-                }
+                onChange={(e) => setFormData({ ...formData, guests: e.target.value })}
                 placeholder="e.g., 150"
               />
             </div>
@@ -204,18 +202,14 @@ const BookingModal = ({
             <Select
               required
               value={formData.timeSlot}
-              onValueChange={(value) =>
-                setFormData({ ...formData, timeSlot: value })
-              }
+              onValueChange={(value) => setFormData({ ...formData, timeSlot: value })}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Select time slot" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="morning">Morning (9 AM - 12 PM)</SelectItem>
-                <SelectItem value="afternoon">
-                  Afternoon (12 PM - 4 PM)
-                </SelectItem>
+                <SelectItem value="afternoon">Afternoon (12 PM - 4 PM)</SelectItem>
                 <SelectItem value="evening">Evening (4 PM - 8 PM)</SelectItem>
                 <SelectItem value="night">Night (8 PM - 12 AM)</SelectItem>
                 <SelectItem value="fullday">Full Day</SelectItem>
@@ -228,27 +222,17 @@ const BookingModal = ({
             <Textarea
               id="notes"
               value={formData.notes}
-              onChange={(e) =>
-                setFormData({ ...formData, notes: e.target.value })
-              }
+              onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
               placeholder="Any specific requirements for décor, catering, audio-visual, etc."
               rows={4}
             />
           </div>
 
           <div className="flex gap-4 pt-4">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-              className="flex-1"
-            >
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} className="flex-1">
               Cancel
             </Button>
-            <Button
-              type="submit"
-              className="flex-1 bg-primary hover:bg-primary/90"
-            >
+            <Button type="submit" className="flex-1 bg-primary hover:bg-primary/90">
               Submit Booking Request
             </Button>
           </div>

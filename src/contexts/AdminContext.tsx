@@ -62,14 +62,12 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
       .maybeSingle();
 
     if (error || !data) {
-      await supabase.auth.signOut();
       setAuthError('Access denied. Your email is not on the admin whitelist.');
       setAdminUser(null);
       return false;
     }
 
     if (!data.is_active) {
-      await supabase.auth.signOut();
       setAuthError('Your admin account has been deactivated. Contact a super admin.');
       setAdminUser(null);
       return false;
