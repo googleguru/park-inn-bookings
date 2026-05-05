@@ -113,7 +113,7 @@ export function BookingManagement() {
           guest_count:    editTarget_.guest_count ?? 0,
           time_slot:      editTarget_.time_slot ?? '',
           notes:          editTarget_.notes ?? '',
-          status:         editTarget_.status,
+          status:         editTarget_.status as 'approved' | 'booked' | 'pending' | 'rejected',
           payment_status: (editTarget_.payment_status ?? 'pending') as PaymentStatus,
           amount:         editTarget_.amount ?? 0,
           advance_paid:   editTarget_.advance_paid ?? 0,
