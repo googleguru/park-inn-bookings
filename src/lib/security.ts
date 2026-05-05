@@ -27,7 +27,7 @@ export function checkRateLimit(key: string, maxCalls: number, windowMs: number):
 export function maskEmail(email: string): string {
   const [local, domain] = email.split('@');
   if (!domain || local.length <= 2) return email;
-  return `${local[0]}${'*'.repeat(local.length - 2)}${local.at(-1)}@${domain}`;
+  return `${local[0]}${'*'.repeat(local.length - 2)}${local[local.length - 1]}@${domain}`;
 }
 
 export function maskPhone(phone: string): string {

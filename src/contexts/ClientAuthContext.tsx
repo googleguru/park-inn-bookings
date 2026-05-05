@@ -53,13 +53,10 @@ export function ClientAuthProvider({ children }: { children: React.ReactNode }) 
   }, []);
 
   const signIn = async () => {
-    const base = `${window.location.origin}${import.meta.env.BASE_URL}`.replace(/\/$/, '');
-    await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        redirectTo: base + '/',
-        queryParams: { prompt: 'select_account' },
-      },
+    const { lovable } = await import('@/integrations/lovable');
+    await lovable.auth.signInWithOAuth('google', {
+      redirect_uri: window.location.origin,
+      extraParams: { prompt: 'select_account' },
     });
   };
 

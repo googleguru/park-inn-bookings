@@ -31,7 +31,7 @@ export function DashboardOverview() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('bookings')
-        .select('id,status,booking_date,event_type,name,email,amount,payment_status,created_at')
+        .select('id,status,booking_date,event_type,name,email,amount,payment_status,created_at,updated_at')
         .order('created_at', { ascending: false });
       if (error) throw error;
       return data ?? [];
