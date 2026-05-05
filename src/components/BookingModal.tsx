@@ -61,6 +61,10 @@ const BookingModal = ({
     e.preventDefault();
 
     if (!selectedDate) return;
+    if (!clientUser) {
+      toast.error("Please sign in with Google to submit a booking.");
+      return;
+    }
 
     const bookingDate = selectedDate.toISOString().split("T")[0];
 
@@ -69,7 +73,7 @@ const BookingModal = ({
       status: "pending",
       name: formData.name,
       mobile: formData.mobile,
-      email: formData.email,
+      email: clientUser.email,
       event_type: formData.eventType,
       guest_count: formData.guests ? parseInt(formData.guests) : null,
       time_slot: formData.timeSlot,

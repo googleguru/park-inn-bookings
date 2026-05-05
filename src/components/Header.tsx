@@ -19,12 +19,14 @@ const Header = () => {
     if (clientUser) {
       return (
         <div className={`flex items-center gap-2 ${mobile ? "py-2" : ""}`}>
-          {clientUser.avatarUrl && (
-            <img src={clientUser.avatarUrl} alt="" className="h-7 w-7 rounded-full border border-border" />
-          )}
-          <span className="text-xs text-muted-foreground hidden lg:block max-w-[120px] truncate">
-            {clientUser.name}
-          </span>
+          <Link to="/profile" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
+            {clientUser.avatarUrl && (
+              <img src={clientUser.avatarUrl} alt="" className="h-7 w-7 rounded-full border border-border" />
+            )}
+            <span className="text-xs text-muted-foreground hidden lg:block max-w-[120px] truncate">
+              {clientUser.name}
+            </span>
+          </Link>
           <Button variant="ghost" size="sm" onClick={signOut} className="gap-1.5 text-xs">
             <LogOut size={13} /> Sign out
           </Button>
@@ -33,7 +35,7 @@ const Header = () => {
     }
     return (
       <Button variant="outline" size="sm" onClick={signIn} className="gap-1.5 text-xs">
-        <LogIn size={13} /> Sign in
+        <LogIn size={13} /> Sign in with Google
       </Button>
     );
   };
