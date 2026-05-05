@@ -40,6 +40,8 @@ interface AdminContextValue {
   session: Session | null;
   loading: boolean;
   authError: string | null;
+  /** Google OAuth access token — available after fresh sign-in; null after page refresh */
+  providerToken: string | null;
   signInWithGoogle: () => Promise<void>;
   signOut: () => Promise<void>;
   hasPermission: (p: Permission) => boolean;
@@ -49,12 +51,13 @@ interface AdminContextValue {
 const AdminContext = createContext<AdminContextValue | null>(null);
 
 export function AdminProvider({ children }: { children: React.ReactNode }) {
-  const [adminUser, setAdminUser] = useState<AdminUser | null>(null);
-  const [session, setSession] = useState<Session | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [authError, setAuthError] = useState<string | null>(null);
+  const [adminUser, setAdminUser]     = useState<AdminUser | null>(null);
+  const [session, setSession]         = useState<Session | null>(null);
+  const [loading, setLoading]         = useState(true);
+  const [authError, setAuthError]     = useState<string | null>(null);
+  const [providerToken, setProviderToken] = useState<string | null>(null);
 
-  async function resolveAdminRole(user: User): Promise<boolean> {
+  async function resolveAdminRole(user: User, token?: string | null): Promise<boolean> {
     const { data, error } = await supabase
       .from('admin_roles')
       .select('role, is_active, last_login')
@@ -86,6 +89,7 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
       role: data.role as AdminRole,
       lastLogin: data.last_login,
     });
+    if (token) setProviderToken(token);
     setAuthError(null);
     return true;
   }
@@ -94,7 +98,7 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       if (session?.user) {
-        resolveAdminRole(session.user).finally(() => setLoading(false));
+        resolveAdminRole(session.user, session.provider_token).finally(() => setLoading(false));
       } else {
         setLoading(false);
       }
@@ -105,10 +109,11 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
         setSession(session);
         if (event === 'SIGNED_IN' && session?.user) {
           setLoading(true);
-          await resolveAdminRole(session.user);
+          await resolveAdminRole(session.user, session.provider_token);
           setLoading(false);
         } else if (event === 'SIGNED_OUT') {
           setAdminUser(null);
+          setProviderToken(null);
           setLoading(false);
         }
       }
@@ -125,6 +130,7 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
       options: {
         redirectTo,
         queryParams: { access_type: 'offline', prompt: 'select_account' },
+        scopes: 'https://www.googleapis.com/auth/calendar.events',
       },
     });
     if (error) setAuthError(error.message);
@@ -134,6 +140,7 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
     await supabase.auth.signOut();
     setAdminUser(null);
     setSession(null);
+    setProviderToken(null);
   };
 
   const hasPermission = (p: Permission) =>
@@ -141,7 +148,7 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <AdminContext.Provider value={{
-      adminUser, session, loading, authError,
+      adminUser, session, loading, authError, providerToken,
       signInWithGoogle, signOut, hasPermission,
       clearError: () => setAuthError(null),
     }}>
