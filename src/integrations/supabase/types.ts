@@ -14,50 +14,277 @@ export type Database = {
   }
   public: {
     Tables: {
+      admin_roles: {
+        Row: {
+          created_at: string
+          email: string
+          id: string
+          is_active: boolean
+          last_login: string | null
+          role: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          id?: string
+          is_active?: boolean
+          last_login?: string | null
+          role?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          id?: string
+          is_active?: boolean
+          last_login?: string | null
+          role?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      audit_logs: {
+        Row: {
+          action: string
+          admin_email: string
+          admin_role: string | null
+          created_at: string
+          error_message: string | null
+          id: string
+          ip_address: string | null
+          new_values: Json | null
+          old_values: Json | null
+          resource_id: string | null
+          resource_type: string
+          success: boolean
+          user_agent: string | null
+        }
+        Insert: {
+          action: string
+          admin_email: string
+          admin_role?: string | null
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          ip_address?: string | null
+          new_values?: Json | null
+          old_values?: Json | null
+          resource_id?: string | null
+          resource_type: string
+          success?: boolean
+          user_agent?: string | null
+        }
+        Update: {
+          action?: string
+          admin_email?: string
+          admin_role?: string | null
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          ip_address?: string | null
+          new_values?: Json | null
+          old_values?: Json | null
+          resource_id?: string | null
+          resource_type?: string
+          success?: boolean
+          user_agent?: string | null
+        }
+        Relationships: []
+      }
+      blocked_users: {
+        Row: {
+          blocked_at: string
+          blocked_by: string
+          email: string
+          id: string
+          is_active: boolean
+          name: string | null
+          reason: string | null
+          unblocked_at: string | null
+        }
+        Insert: {
+          blocked_at?: string
+          blocked_by: string
+          email: string
+          id?: string
+          is_active?: boolean
+          name?: string | null
+          reason?: string | null
+          unblocked_at?: string | null
+        }
+        Update: {
+          blocked_at?: string
+          blocked_by?: string
+          email?: string
+          id?: string
+          is_active?: boolean
+          name?: string | null
+          reason?: string | null
+          unblocked_at?: string | null
+        }
+        Relationships: []
+      }
       bookings: {
         Row: {
+          advance_paid: number | null
+          amount: number | null
           booking_date: string
           created_at: string
           email: string | null
           event_type: string | null
+          google_calendar_event_id: string | null
           guest_count: number | null
           id: string
+          is_blocked: boolean | null
           mobile: string | null
           name: string | null
           notes: string | null
+          payment_status: string | null
           status: string
           time_slot: string | null
           updated_at: string
         }
         Insert: {
+          advance_paid?: number | null
+          amount?: number | null
           booking_date: string
           created_at?: string
           email?: string | null
           event_type?: string | null
+          google_calendar_event_id?: string | null
           guest_count?: number | null
           id?: string
+          is_blocked?: boolean | null
           mobile?: string | null
           name?: string | null
           notes?: string | null
+          payment_status?: string | null
           status: string
           time_slot?: string | null
           updated_at?: string
         }
         Update: {
+          advance_paid?: number | null
+          amount?: number | null
           booking_date?: string
           created_at?: string
           email?: string | null
           event_type?: string | null
+          google_calendar_event_id?: string | null
           guest_count?: number | null
           id?: string
+          is_blocked?: boolean | null
           mobile?: string | null
           name?: string | null
           notes?: string | null
+          payment_status?: string | null
           status?: string
           time_slot?: string | null
           updated_at?: string
         }
         Relationships: []
+      }
+      event_pricing: {
+        Row: {
+          base_price: number
+          created_at: string
+          description: string | null
+          event_type: string
+          id: string
+          is_active: boolean
+          minimum_guests: number
+          per_guest_price: number
+          updated_at: string
+        }
+        Insert: {
+          base_price?: number
+          created_at?: string
+          description?: string | null
+          event_type: string
+          id?: string
+          is_active?: boolean
+          minimum_guests?: number
+          per_guest_price?: number
+          updated_at?: string
+        }
+        Update: {
+          base_price?: number
+          created_at?: string
+          description?: string | null
+          event_type?: string
+          id?: string
+          is_active?: boolean
+          minimum_guests?: number
+          per_guest_price?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      ledger_entries: {
+        Row: {
+          booking_id: string | null
+          created_at: string
+          created_by: string
+          credit_amount: number
+          debit_amount: number
+          description: string
+          entry_type: string
+          event_date: string | null
+          event_type: string | null
+          id: string
+          notes: string | null
+          payment_method: string | null
+          reference_number: string | null
+          running_balance: number
+          user_email: string | null
+          user_name: string | null
+        }
+        Insert: {
+          booking_id?: string | null
+          created_at?: string
+          created_by: string
+          credit_amount?: number
+          debit_amount?: number
+          description: string
+          entry_type: string
+          event_date?: string | null
+          event_type?: string | null
+          id?: string
+          notes?: string | null
+          payment_method?: string | null
+          reference_number?: string | null
+          running_balance?: number
+          user_email?: string | null
+          user_name?: string | null
+        }
+        Update: {
+          booking_id?: string | null
+          created_at?: string
+          created_by?: string
+          credit_amount?: number
+          debit_amount?: number
+          description?: string
+          entry_type?: string
+          event_date?: string | null
+          event_type?: string | null
+          id?: string
+          notes?: string | null
+          payment_method?: string | null
+          reference_number?: string | null
+          running_balance?: number
+          user_email?: string | null
+          user_name?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ledger_entries_booking_id_fkey"
+            columns: ["booking_id"]
+            isOneToOne: false
+            referencedRelation: "bookings"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
