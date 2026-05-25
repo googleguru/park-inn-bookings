@@ -335,6 +335,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      admin_touch_last_login: { Args: never; Returns: undefined }
       get_booked_dates: {
         Args: never
         Returns: {
