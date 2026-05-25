@@ -3,6 +3,8 @@ import { Calendar } from "@/components/ui/calendar";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { CheckCircle, Lock, Clock, LogIn } from "lucide-react";
 import BookingModal from "./BookingModal";
 import { toast } from "sonner";
@@ -12,7 +14,17 @@ import { useClientAuth } from "@/contexts/ClientAuthContext";
 type DateStatus = "available" | "pending" | "approved" | "rejected" | "booked";
 
 const BookingCalendar = () => {
-  const { clientUser, signIn, loading } = useClientAuth();
+  const { clientUser, signIn, signInWithEmail, signUpWithEmail, loading } = useClientAuth();
+  const [date, setDate] = useState<Date | undefined>(new Date());
+  const [showBookingModal, setShowBookingModal] = useState(false);
+  const [showSignInPrompt, setShowSignInPrompt] = useState(false);
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  const [bookedDates, setBookedDates] = useState<Record<string, DateStatus>>({});
+  const [authMode, setAuthMode] = useState<"signin" | "signup">("signin");
+  const [authEmail, setAuthEmail] = useState("");
+  const [authPassword, setAuthPassword] = useState("");
+  const [authName, setAuthName] = useState("");
+  const [authBusy, setAuthBusy] = useState(false);
   const [date, setDate] = useState<Date | undefined>(new Date());
   const [showBookingModal, setShowBookingModal] = useState(false);
   const [showSignInPrompt, setShowSignInPrompt] = useState(false);
