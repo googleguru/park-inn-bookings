@@ -335,6 +335,13 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_booked_dates: {
+        Args: never
+        Returns: {
+          booking_date: string
+          status: string
+        }[]
+      }
       is_admin: { Args: never; Returns: boolean }
       is_finance_or_super: { Args: never; Returns: boolean }
       is_senior_admin: { Args: never; Returns: boolean }

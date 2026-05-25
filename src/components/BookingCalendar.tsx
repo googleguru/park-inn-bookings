@@ -20,22 +20,36 @@ const BookingCalendar = () => {
   const [bookedDates, setBookedDates] = useState<Record<string, DateStatus>>({});
 
   useEffect(() => {
-    fetchBookings();
+    // Pull latest Google Calendar events into our DB, then load availability.
+    supabase.functions
+      .invoke("calendar-sync", { body: { action: "pull" } })
+      .catch((err) => console.warn("Google Calendar pull skipped:", err))
+      .finally(fetchBookings);
+
+    // Live updates whenever bookings change in the DB.
+    const channel = supabase
+      .channel("bookings-availability")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "bookings" },
+        () => fetchBookings(),
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   const fetchBookings = async () => {
-    const { data, error } = await supabase
-      .from("bookings")
-      .select("booking_date, status");
-
+    const { data, error } = await (supabase as any).rpc("get_booked_dates");
     if (error) {
-      console.error("Error fetching bookings:", error);
+      console.error("Error fetching availability:", error);
       return;
     }
-
     const bookingsMap: Record<string, DateStatus> = {};
-    data?.forEach((booking) => {
-      bookingsMap[booking.booking_date] = booking.status as DateStatus;
+    (data ?? []).forEach((row: { booking_date: string; status: string }) => {
+      bookingsMap[row.booking_date] = row.status as DateStatus;
     });
     setBookedDates(bookingsMap);
   };

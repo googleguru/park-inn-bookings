@@ -6,7 +6,18 @@ import Header from "@/components/Header";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Loader2, Calendar, LogOut, Mail, User as UserIcon } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { toast } from "sonner";
+import { Loader2, Calendar, LogOut, Mail, User as UserIcon, X } from "lucide-react";
 
 interface BookingRow {
   id: string;
@@ -29,20 +40,57 @@ const Profile = () => {
   const { clientUser, loading, signOut } = useClientAuth();
   const [bookings, setBookings] = useState<BookingRow[]>([]);
   const [fetching, setFetching] = useState(true);
+  const [cancelTarget, setCancelTarget] = useState<BookingRow | null>(null);
+  const [cancelling, setCancelling] = useState(false);
 
-  useEffect(() => {
+  const fetchBookings = async () => {
     if (!clientUser) return;
     setFetching(true);
-    supabase
+    const { data } = await supabase
       .from("bookings")
       .select("id,booking_date,status,event_type,guest_count,time_slot,created_at")
       .eq("email", clientUser.email)
-      .order("booking_date", { ascending: false })
-      .then(({ data }) => {
-        setBookings((data ?? []) as BookingRow[]);
-        setFetching(false);
-      });
+      .order("booking_date", { ascending: false });
+    setBookings((data ?? []) as BookingRow[]);
+    setFetching(false);
+  };
+
+  useEffect(() => {
+    fetchBookings();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clientUser]);
+
+  const handleCancel = async () => {
+    if (!cancelTarget) return;
+    setCancelling(true);
+    try {
+      // 1. Remove the matching Google Calendar event first (best-effort).
+      try {
+        await supabase.functions.invoke("calendar-sync", {
+          body: { action: "delete", bookingId: cancelTarget.id },
+        });
+      } catch (err) {
+        console.warn("Google Calendar delete skipped:", err);
+      }
+
+      // 2. Delete the booking (RLS allows only own pending rows).
+      const { error } = await supabase
+        .from("bookings")
+        .delete()
+        .eq("id", cancelTarget.id);
+
+      if (error) {
+        toast.error("Could not cancel booking. Please try again.");
+        console.error(error);
+      } else {
+        toast.success("Booking cancelled.");
+        setBookings((prev) => prev.filter((b) => b.id !== cancelTarget.id));
+      }
+    } finally {
+      setCancelling(false);
+      setCancelTarget(null);
+    }
+  };
 
   if (loading) {
     return (
@@ -131,6 +179,16 @@ const Profile = () => {
                     >
                       {b.status}
                     </Badge>
+                    {b.status === "pending" && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="gap-1.5 text-destructive hover:text-destructive hover:bg-destructive/10 border-destructive/30"
+                        onClick={() => setCancelTarget(b)}
+                      >
+                        <X size={14} /> Cancel
+                      </Button>
+                    )}
                   </div>
                 ))}
               </div>
@@ -138,6 +196,50 @@ const Profile = () => {
           </CardContent>
         </Card>
       </main>
+
+      <AlertDialog open={!!cancelTarget} onOpenChange={(o) => !o && setCancelTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Cancel this booking?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {cancelTarget && (
+                <>
+                  Your pending booking for{" "}
+                  <strong>
+                    {new Date(cancelTarget.booking_date).toLocaleDateString("en-US", {
+                      weekday: "long",
+                      year: "numeric",
+                      month: "long",
+                      day: "numeric",
+                    })}
+                  </strong>{" "}
+                  will be removed and the date will become available again.
+                  This cannot be undone.
+                </>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={cancelling}>Keep booking</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                handleCancel();
+              }}
+              disabled={cancelling}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {cancelling ? (
+                <>
+                  <Loader2 className="animate-spin mr-1.5" size={14} /> Cancelling…
+                </>
+              ) : (
+                "Yes, cancel"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
