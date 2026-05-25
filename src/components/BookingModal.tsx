@@ -47,6 +47,7 @@ const BookingModal = ({
     timeSlot: "",
     notes: "",
   });
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
 
   useEffect(() => {
     if (clientUser) {
