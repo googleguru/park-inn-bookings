@@ -107,6 +107,7 @@ const BookingModal = ({
     );
 
     setFormData({ name: "", mobile: "", email: "", eventType: "", guests: "", timeSlot: "", notes: "" });
+    setAcceptedTerms(false);
     onBookingSuccess();
     onOpenChange(false);
   };
