@@ -64,7 +64,11 @@ const BookingModal = ({
 
     if (!selectedDate) return;
     if (!clientUser) {
-      toast.error("Please sign in with Google to submit a booking.");
+      toast.error("Please sign in to submit a booking.");
+      return;
+    }
+    if (!acceptedTerms) {
+      toast.error("Please accept the Terms & Privacy Policy to continue.");
       return;
     }
 
