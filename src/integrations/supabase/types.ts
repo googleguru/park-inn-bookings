@@ -125,11 +125,48 @@ export type Database = {
         }
         Relationships: []
       }
+      booking_timeline: {
+        Row: {
+          booking_id: string
+          changed_by: string | null
+          created_at: string
+          id: string
+          notes: string | null
+          status: string
+        }
+        Insert: {
+          booking_id: string
+          changed_by?: string | null
+          created_at?: string
+          id?: string
+          notes?: string | null
+          status: string
+        }
+        Update: {
+          booking_id?: string
+          changed_by?: string | null
+          created_at?: string
+          id?: string
+          notes?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "booking_timeline_booking_id_fkey"
+            columns: ["booking_id"]
+            isOneToOne: false
+            referencedRelation: "bookings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       bookings: {
         Row: {
+          admin_notes: string | null
           advance_paid: number | null
           amount: number | null
           booking_date: string
+          cancelled_at: string | null
           created_at: string
           email: string | null
           event_type: string | null
@@ -144,11 +181,14 @@ export type Database = {
           status: string
           time_slot: string | null
           updated_at: string
+          user_id: string | null
         }
         Insert: {
+          admin_notes?: string | null
           advance_paid?: number | null
           amount?: number | null
           booking_date: string
+          cancelled_at?: string | null
           created_at?: string
           email?: string | null
           event_type?: string | null
@@ -163,11 +203,14 @@ export type Database = {
           status: string
           time_slot?: string | null
           updated_at?: string
+          user_id?: string | null
         }
         Update: {
+          admin_notes?: string | null
           advance_paid?: number | null
           amount?: number | null
           booking_date?: string
+          cancelled_at?: string | null
           created_at?: string
           email?: string | null
           event_type?: string | null
@@ -182,6 +225,7 @@ export type Database = {
           status?: string
           time_slot?: string | null
           updated_at?: string
+          user_id?: string | null
         }
         Relationships: []
       }
@@ -291,7 +335,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      is_admin: { Args: never; Returns: boolean }
+      is_finance_or_super: { Args: never; Returns: boolean }
+      is_senior_admin: { Args: never; Returns: boolean }
+      is_super_admin: { Args: never; Returns: boolean }
     }
     Enums: {
       [_ in never]: never
