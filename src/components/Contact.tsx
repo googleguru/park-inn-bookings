@@ -45,9 +45,11 @@ const Contact = () => {
                   <p className="text-muted-foreground">
                     Dhanlakshmi Park Inn
                     <br />
-                    [Your Address Here]
+                    4/3 V.V Giri Salai, Pachaiyappan St,
                     <br />
-                    City, State - PIN Code
+                    West Jafferkhanpet, Chennai,
+                    <br />
+                    Tamil Nadu 600083
                   </p>
                 </div>
               </div>
@@ -58,8 +60,9 @@ const Contact = () => {
                 </div>
                 <div>
                   <h4 className="font-semibold mb-1">Phone</h4>
-                  <p className="text-muted-foreground">+91 XXXXX XXXXX</p>
-                  <p className="text-muted-foreground">+91 XXXXX XXXXX</p>
+                  <a href="tel:+919841414699" className="text-muted-foreground hover:text-primary transition-colors">
+                    098414 14699
+                  </a>
                 </div>
               </div>
 
@@ -76,9 +79,13 @@ const Contact = () => {
               </div>
 
               <div className="mt-8 rounded-lg overflow-hidden border border-border h-64">
-                <div className="w-full h-full bg-muted flex items-center justify-center text-muted-foreground">
-                  <p>Google Maps will be embedded here</p>
-                </div>
+                <iframe
+                  src="https://www.google.com/maps?q=4/3+V.V+Giri+Salai,+Pachaiyappan+St,+West+Jafferkhanpet,+Chennai,+Tamil+Nadu+600083&output=embed"
+                  className="w-full h-full border-0"
+                  loading="lazy"
+                  referrerPolicy="no-referrer-when-downgrade"
+                  title="Dhanlakshmi Park Inn location"
+                />
               </div>
             </div>
           </Card>
