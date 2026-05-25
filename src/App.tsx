@@ -37,6 +37,7 @@ const App = () => (
           {/* Public routes */}
           <Route path="/" element={<Index />} />
           <Route path="/profile" element={<Profile />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
 
           {/* Admin section — AdminPage wraps all sub-routes in AdminProvider + AdminGuard */}
           <Route path="/admin" element={<AdminPage />}>
