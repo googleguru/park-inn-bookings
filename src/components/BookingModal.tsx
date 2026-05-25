@@ -68,23 +68,32 @@ const BookingModal = ({
 
     const bookingDate = selectedDate.toISOString().split("T")[0];
 
-    const { error } = await supabase.from("bookings").insert({
-      booking_date: bookingDate,
-      status: "pending",
-      name: formData.name,
-      mobile: formData.mobile,
-      email: clientUser.email,
-      event_type: formData.eventType,
-      guest_count: formData.guests ? parseInt(formData.guests) : null,
-      time_slot: formData.timeSlot,
-      notes: formData.notes,
-    });
+    const { data: inserted, error } = await supabase
+      .from("bookings")
+      .insert({
+        booking_date: bookingDate,
+        status: "pending",
+        name: formData.name,
+        mobile: formData.mobile,
+        email: clientUser.email,
+        event_type: formData.eventType,
+        guest_count: formData.guests ? parseInt(formData.guests) : null,
+        time_slot: formData.timeSlot,
+        notes: formData.notes,
+      })
+      .select("id")
+      .maybeSingle();
 
-    if (error) {
+    if (error || !inserted) {
       toast.error("Failed to create booking. Please try again.");
       console.error("Error creating booking:", error);
       return;
     }
+
+    // Mirror to Google Calendar (best-effort; non-blocking failure).
+    supabase.functions
+      .invoke("calendar-sync", { body: { action: "create", bookingId: inserted.id } })
+      .catch((err) => console.warn("Google Calendar sync skipped:", err));
 
     toast.success(
       `Booking request submitted for ${formatDate(selectedDate)}. Our team will review and contact you soon.`,

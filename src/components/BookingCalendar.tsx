@@ -42,7 +42,7 @@ const BookingCalendar = () => {
   }, []);
 
   const fetchBookings = async () => {
-    const { data, error } = await supabase.rpc("get_booked_dates");
+    const { data, error } = await (supabase as any).rpc("get_booked_dates");
     if (error) {
       console.error("Error fetching availability:", error);
       return;
