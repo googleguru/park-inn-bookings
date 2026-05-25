@@ -7,6 +7,7 @@ import { ClientAuthProvider } from "@/contexts/ClientAuthContext";
 import Index from "./pages/Index";
 import AdminPage from "./pages/Admin";
 import Profile from "./pages/Profile";
+import ResetPassword from "./pages/ResetPassword";
 import NotFound from "./pages/NotFound";
 import { DashboardOverview } from "@/components/admin/DashboardOverview";
 import { BookingManagement } from "@/components/admin/BookingManagement";
