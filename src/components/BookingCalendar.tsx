@@ -3,6 +3,8 @@ import { Calendar } from "@/components/ui/calendar";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { CheckCircle, Lock, Clock, LogIn } from "lucide-react";
 import BookingModal from "./BookingModal";
 import { toast } from "sonner";
@@ -12,12 +14,17 @@ import { useClientAuth } from "@/contexts/ClientAuthContext";
 type DateStatus = "available" | "pending" | "approved" | "rejected" | "booked";
 
 const BookingCalendar = () => {
-  const { clientUser, signIn, loading } = useClientAuth();
+  const { clientUser, signIn, signInWithEmail, signUpWithEmail, loading } = useClientAuth();
   const [date, setDate] = useState<Date | undefined>(new Date());
   const [showBookingModal, setShowBookingModal] = useState(false);
   const [showSignInPrompt, setShowSignInPrompt] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [bookedDates, setBookedDates] = useState<Record<string, DateStatus>>({});
+  const [authMode, setAuthMode] = useState<"signin" | "signup">("signin");
+  const [authEmail, setAuthEmail] = useState("");
+  const [authPassword, setAuthPassword] = useState("");
+  const [authName, setAuthName] = useState("");
+  const [authBusy, setAuthBusy] = useState(false);
 
   useEffect(() => {
     // Pull latest Google Calendar events into our DB, then load availability.
@@ -146,12 +153,15 @@ const BookingCalendar = () => {
           <Card className="w-full max-w-sm p-6 space-y-4 shadow-xl">
             <div className="text-center space-y-2">
               <LogIn className="mx-auto h-10 w-10 text-primary" />
-              <h3 className="text-lg font-semibold">Sign in to Book</h3>
+              <h3 className="text-lg font-semibold">
+                {authMode === "signin" ? "Sign in to Book" : "Create an account"}
+              </h3>
               <p className="text-sm text-muted-foreground">
-                Please sign in with your Google account to request a booking. Admin approval is required before confirmation.
+                Admin approval is required before your booking is confirmed.
               </p>
             </div>
-            <Button className="w-full gap-3 h-11" onClick={signIn}>
+
+            <Button variant="outline" className="w-full gap-3 h-11" onClick={signIn}>
               <svg viewBox="0 0 24 24" width="18" height="18" xmlns="http://www.w3.org/2000/svg">
                 <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
                 <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
@@ -160,12 +170,73 @@ const BookingCalendar = () => {
               </svg>
               Continue with Google
             </Button>
-            <Button variant="outline" className="w-full" onClick={() => setShowSignInPrompt(false)}>
+
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <div className="h-px flex-1 bg-border" />or<div className="h-px flex-1 bg-border" />
+            </div>
+
+            <form
+              className="space-y-3"
+              onSubmit={async (e) => {
+                e.preventDefault();
+                if (authBusy) return;
+                if (!authEmail || authPassword.length < 6) {
+                  toast.error("Enter a valid email and 6+ char password");
+                  return;
+                }
+                setAuthBusy(true);
+                const res = authMode === "signin"
+                  ? await signInWithEmail(authEmail.trim(), authPassword)
+                  : await signUpWithEmail(authEmail.trim(), authPassword, authName.trim() || undefined);
+                setAuthBusy(false);
+                if (res.error) {
+                  toast.error(res.error);
+                  return;
+                }
+                toast.success(authMode === "signin" ? "Signed in" : "Account created");
+                setShowSignInPrompt(false);
+                setAuthPassword("");
+                setShowBookingModal(true);
+              }}
+            >
+              {authMode === "signup" && (
+                <div className="space-y-1.5">
+                  <Label htmlFor="auth-name">Name</Label>
+                  <Input id="auth-name" value={authName} onChange={(e) => setAuthName(e.target.value)} placeholder="Your name" />
+                </div>
+              )}
+              <div className="space-y-1.5">
+                <Label htmlFor="auth-email">Email</Label>
+                <Input id="auth-email" type="email" required value={authEmail} onChange={(e) => setAuthEmail(e.target.value)} placeholder="you@example.com" />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="auth-pass">Password</Label>
+                <Input id="auth-pass" type="password" required minLength={6} value={authPassword} onChange={(e) => setAuthPassword(e.target.value)} placeholder="At least 6 characters" />
+              </div>
+              <Button type="submit" className="w-full h-11" disabled={authBusy}>
+                {authBusy ? "Please wait…" : authMode === "signin" ? "Sign in" : "Create account"}
+              </Button>
+            </form>
+
+            <div className="text-center text-xs text-muted-foreground">
+              {authMode === "signin" ? (
+                <>New here?{" "}
+                  <button className="text-primary underline" onClick={() => setAuthMode("signup")}>Create an account</button>
+                </>
+              ) : (
+                <>Already have an account?{" "}
+                  <button className="text-primary underline" onClick={() => setAuthMode("signin")}>Sign in</button>
+                </>
+              )}
+            </div>
+
+            <Button variant="ghost" className="w-full" onClick={() => setShowSignInPrompt(false)}>
               Cancel
             </Button>
           </Card>
         </div>
       )}
+
 
       <BookingModal
         open={showBookingModal}

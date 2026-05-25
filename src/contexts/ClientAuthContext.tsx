@@ -12,6 +12,8 @@ interface ClientAuthContextValue {
   clientUser: ClientUser | null;
   loading: boolean;
   signIn: () => Promise<void>;
+  signInWithEmail: (email: string, password: string) => Promise<{ error?: string }>;
+  signUpWithEmail: (email: string, password: string, name?: string) => Promise<{ error?: string }>;
   signOut: () => Promise<void>;
 }
 
@@ -63,13 +65,31 @@ export function ClientAuthProvider({ children }: { children: React.ReactNode }) 
     });
   };
 
+  const signInWithEmail = async (email: string, password: string) => {
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    return error ? { error: error.message } : {};
+  };
+
+  const signUpWithEmail = async (email: string, password: string, name?: string) => {
+    const base = `${window.location.origin}${import.meta.env.BASE_URL}`.replace(/\/$/, '');
+    const { error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        emailRedirectTo: base + '/',
+        data: name ? { full_name: name } : undefined,
+      },
+    });
+    return error ? { error: error.message } : {};
+  };
+
   const signOut = async () => {
     await supabase.auth.signOut();
     setClientUser(null);
   };
 
   return (
-    <ClientAuthContext.Provider value={{ clientUser, loading, signIn, signOut }}>
+    <ClientAuthContext.Provider value={{ clientUser, loading, signIn, signInWithEmail, signUpWithEmail, signOut }}>
       {children}
     </ClientAuthContext.Provider>
   );
