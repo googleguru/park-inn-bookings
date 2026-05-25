@@ -14,6 +14,8 @@ interface ClientAuthContextValue {
   signIn: () => Promise<void>;
   signInWithEmail: (email: string, password: string) => Promise<{ error?: string }>;
   signUpWithEmail: (email: string, password: string, name?: string) => Promise<{ error?: string }>;
+  resetPassword: (email: string) => Promise<{ error?: string }>;
+  setPersistence: (stay: boolean) => void;
   signOut: () => Promise<void>;
 }
 
