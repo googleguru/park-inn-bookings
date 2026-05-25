@@ -332,16 +332,23 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      booked_dates: {
+        Row: {
+          booking_date: string | null
+          status: string | null
+        }
+        Insert: {
+          booking_date?: string | null
+          status?: string | null
+        }
+        Update: {
+          booking_date?: string | null
+          status?: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
-      get_booked_dates: {
-        Args: never
-        Returns: {
-          booking_date: string
-          status: string
-        }[]
-      }
       is_admin: { Args: never; Returns: boolean }
       is_finance_or_super: { Args: never; Returns: boolean }
       is_senior_admin: { Args: never; Returns: boolean }
