@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select,
   SelectContent,
@@ -46,6 +47,7 @@ const BookingModal = ({
     timeSlot: "",
     notes: "",
   });
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
 
   useEffect(() => {
     if (clientUser) {
@@ -62,7 +64,11 @@ const BookingModal = ({
 
     if (!selectedDate) return;
     if (!clientUser) {
-      toast.error("Please sign in with Google to submit a booking.");
+      toast.error("Please sign in to submit a booking.");
+      return;
+    }
+    if (!acceptedTerms) {
+      toast.error("Please accept the Terms & Privacy Policy to continue.");
       return;
     }
 
@@ -101,6 +107,7 @@ const BookingModal = ({
     );
 
     setFormData({ name: "", mobile: "", email: "", eventType: "", guests: "", timeSlot: "", notes: "" });
+    setAcceptedTerms(false);
     onBookingSuccess();
     onOpenChange(false);
   };
@@ -241,11 +248,31 @@ const BookingModal = ({
             />
           </div>
 
-          <div className="flex gap-4 pt-4">
+          <div className="flex items-start gap-2 rounded-lg border bg-muted/40 p-3">
+            <Checkbox
+              id="terms"
+              checked={acceptedTerms}
+              onCheckedChange={(v) => setAcceptedTerms(v === true)}
+              className="mt-0.5"
+            />
+            <Label htmlFor="terms" className="text-xs font-normal leading-relaxed cursor-pointer">
+              I agree to the{" "}
+              <a href="#terms" className="text-primary underline" target="_blank" rel="noreferrer">Terms of Service</a>
+              {" "}and{" "}
+              <a href="#privacy" className="text-primary underline" target="_blank" rel="noreferrer">Privacy Policy</a>,
+              and consent to being contacted about this booking request.
+            </Label>
+          </div>
+
+          <div className="flex gap-4 pt-2">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)} className="flex-1">
               Cancel
             </Button>
-            <Button type="submit" className="flex-1 bg-primary hover:bg-primary/90">
+            <Button
+              type="submit"
+              disabled={!acceptedTerms}
+              className="flex-1 bg-primary hover:bg-primary/90"
+            >
               Submit Booking Request
             </Button>
           </div>

@@ -14,6 +14,8 @@ interface ClientAuthContextValue {
   signIn: () => Promise<void>;
   signInWithEmail: (email: string, password: string) => Promise<{ error?: string }>;
   signUpWithEmail: (email: string, password: string, name?: string) => Promise<{ error?: string }>;
+  resetPassword: (email: string) => Promise<{ error?: string }>;
+  setPersistence: (stay: boolean) => void;
   signOut: () => Promise<void>;
 }
 
@@ -83,13 +85,44 @@ export function ClientAuthProvider({ children }: { children: React.ReactNode }) 
     return error ? { error: error.message } : {};
   };
 
+  const resetPassword = async (email: string) => {
+    const base = `${window.location.origin}${import.meta.env.BASE_URL}`.replace(/\/$/, '');
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${base}/#/reset-password`,
+    });
+    return error ? { error: error.message } : {};
+  };
+
+  // When stay=false, sign out automatically when the tab/window is closed.
+  const setPersistence = (stay: boolean) => {
+    try {
+      if (stay) {
+        sessionStorage.removeItem('park-inn-ephemeral');
+      } else {
+        sessionStorage.setItem('park-inn-ephemeral', '1');
+      }
+    } catch { /* ignore */ }
+  };
+
+  useEffect(() => {
+    const onUnload = () => {
+      try {
+        if (sessionStorage.getItem('park-inn-ephemeral') === '1') {
+          supabase.auth.signOut();
+        }
+      } catch { /* ignore */ }
+    };
+    window.addEventListener('beforeunload', onUnload);
+    return () => window.removeEventListener('beforeunload', onUnload);
+  }, []);
+
   const signOut = async () => {
     await supabase.auth.signOut();
     setClientUser(null);
   };
 
   return (
-    <ClientAuthContext.Provider value={{ clientUser, loading, signIn, signInWithEmail, signUpWithEmail, signOut }}>
+    <ClientAuthContext.Provider value={{ clientUser, loading, signIn, signInWithEmail, signUpWithEmail, resetPassword, setPersistence, signOut }}>
       {children}
     </ClientAuthContext.Provider>
   );
