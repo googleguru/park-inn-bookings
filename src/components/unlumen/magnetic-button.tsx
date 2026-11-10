@@ -110,5 +110,4 @@ export function MagneticButton({
   );
 }
 
-export { magneticButtonVariants };
 

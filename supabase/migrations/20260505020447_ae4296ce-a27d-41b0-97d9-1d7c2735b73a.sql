@@ -9,9 +9,13 @@ CREATE TABLE IF NOT EXISTS admin_roles (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 ALTER TABLE admin_roles ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "admin_roles_self_read" ON admin_roles;
 CREATE POLICY "admin_roles_self_read" ON admin_roles FOR SELECT TO authenticated USING (auth.jwt() ->> 'email' = email);
+DROP POLICY IF EXISTS "admin_roles_admins_read" ON admin_roles;
 CREATE POLICY "admin_roles_admins_read" ON admin_roles FOR SELECT TO authenticated USING (EXISTS (SELECT 1 FROM admin_roles r WHERE r.email = auth.jwt() ->> 'email' AND r.role IN ('super_admin','admin') AND r.is_active = true));
+DROP POLICY IF EXISTS "admin_roles_self_update" ON admin_roles;
 CREATE POLICY "admin_roles_self_update" ON admin_roles FOR UPDATE TO authenticated USING (auth.jwt() ->> 'email' = email) WITH CHECK (auth.jwt() ->> 'email' = email);
+DROP POLICY IF EXISTS "admin_roles_super_write" ON admin_roles;
 CREATE POLICY "admin_roles_super_write" ON admin_roles FOR ALL TO authenticated USING (EXISTS (SELECT 1 FROM admin_roles r WHERE r.email = auth.jwt() ->> 'email' AND r.role = 'super_admin' AND r.is_active = true)) WITH CHECK (EXISTS (SELECT 1 FROM admin_roles r WHERE r.email = auth.jwt() ->> 'email' AND r.role = 'super_admin' AND r.is_active = true));
 
 -- Event Pricing
@@ -27,7 +31,9 @@ CREATE TABLE IF NOT EXISTS event_pricing (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 ALTER TABLE event_pricing ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "event_pricing_public_read" ON event_pricing;
 CREATE POLICY "event_pricing_public_read" ON event_pricing FOR SELECT USING (true);
+DROP POLICY IF EXISTS "event_pricing_admin_write" ON event_pricing;
 CREATE POLICY "event_pricing_admin_write" ON event_pricing FOR ALL TO authenticated USING (EXISTS (SELECT 1 FROM admin_roles r WHERE r.email = auth.jwt() ->> 'email' AND r.role IN ('super_admin','admin') AND r.is_active = true)) WITH CHECK (EXISTS (SELECT 1 FROM admin_roles r WHERE r.email = auth.jwt() ->> 'email' AND r.role IN ('super_admin','admin') AND r.is_active = true));
 
 -- Extend bookings
@@ -56,8 +62,11 @@ CREATE TABLE IF NOT EXISTS ledger_entries (
 CREATE INDEX IF NOT EXISTS idx_ledger_booking ON ledger_entries(booking_id);
 CREATE INDEX IF NOT EXISTS idx_ledger_created_at ON ledger_entries(created_at DESC);
 ALTER TABLE ledger_entries ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "ledger_admin_read" ON ledger_entries;
 CREATE POLICY "ledger_admin_read" ON ledger_entries FOR SELECT TO authenticated USING (EXISTS (SELECT 1 FROM admin_roles r WHERE r.email = auth.jwt() ->> 'email' AND r.is_active = true));
+DROP POLICY IF EXISTS "ledger_admin_insert" ON ledger_entries;
 CREATE POLICY "ledger_admin_insert" ON ledger_entries FOR INSERT TO authenticated WITH CHECK (EXISTS (SELECT 1 FROM admin_roles r WHERE r.email = auth.jwt() ->> 'email' AND r.is_active = true));
+DROP POLICY IF EXISTS "ledger_finance_update" ON ledger_entries;
 CREATE POLICY "ledger_finance_update" ON ledger_entries FOR UPDATE TO authenticated USING (EXISTS (SELECT 1 FROM admin_roles r WHERE r.email = auth.jwt() ->> 'email' AND r.role IN ('super_admin','finance_manager') AND r.is_active = true));
 
 -- Audit logs
@@ -72,7 +81,9 @@ CREATE TABLE IF NOT EXISTS audit_logs (
 );
 CREATE INDEX IF NOT EXISTS idx_audit_created_at ON audit_logs(created_at DESC);
 ALTER TABLE audit_logs ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "audit_admins_read" ON audit_logs;
 CREATE POLICY "audit_admins_read" ON audit_logs FOR SELECT TO authenticated USING (EXISTS (SELECT 1 FROM admin_roles r WHERE r.email = auth.jwt() ->> 'email' AND r.role IN ('super_admin','admin') AND r.is_active = true));
+DROP POLICY IF EXISTS "audit_admins_insert" ON audit_logs;
 CREATE POLICY "audit_admins_insert" ON audit_logs FOR INSERT TO authenticated WITH CHECK (EXISTS (SELECT 1 FROM admin_roles r WHERE r.email = auth.jwt() ->> 'email' AND r.is_active = true));
 
 -- Blocked Users
@@ -85,11 +96,15 @@ CREATE TABLE IF NOT EXISTS blocked_users (
   unblocked_at TIMESTAMPTZ
 );
 ALTER TABLE blocked_users ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "blocked_public_read" ON blocked_users;
 CREATE POLICY "blocked_public_read" ON blocked_users FOR SELECT USING (true);
+DROP POLICY IF EXISTS "blocked_admin_write" ON blocked_users;
 CREATE POLICY "blocked_admin_write" ON blocked_users FOR ALL TO authenticated USING (EXISTS (SELECT 1 FROM admin_roles r WHERE r.email = auth.jwt() ->> 'email' AND r.role IN ('super_admin','admin') AND r.is_active = true)) WITH CHECK (EXISTS (SELECT 1 FROM admin_roles r WHERE r.email = auth.jwt() ->> 'email' AND r.role IN ('super_admin','admin') AND r.is_active = true));
 
 -- Triggers
+DROP TRIGGER IF EXISTS trg_admin_roles_updated_at ON admin_roles;
 CREATE TRIGGER trg_admin_roles_updated_at BEFORE UPDATE ON admin_roles FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+DROP TRIGGER IF EXISTS trg_event_pricing_updated_at ON event_pricing;
 CREATE TRIGGER trg_event_pricing_updated_at BEFORE UPDATE ON event_pricing FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 -- Seed pricing
