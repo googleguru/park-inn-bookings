@@ -22,6 +22,8 @@ import { toast } from "sonner";
 import { Calendar } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import type { ClientUser } from "@/contexts/ClientAuthContext";
+import { format } from "date-fns";
+import { checkRateLimit } from "@/lib/security";
 
 interface BookingModalProps {
   open: boolean;
@@ -72,20 +74,45 @@ const BookingModal = ({
       return;
     }
 
-    const bookingDate = selectedDate.toISOString().split("T")[0];
+    const name = formData.name.trim();
+    const mobile = formData.mobile.replace(/[\s-]/g, "");
+    const guests = parseInt(formData.guests, 10);
+    if (!name) {
+      toast.error("Please enter your name.");
+      return;
+    }
+    if (!/^\+?\d{10,13}$/.test(mobile)) {
+      toast.error("Please enter a valid mobile number.");
+      return;
+    }
+    if (!Number.isInteger(guests) || guests < 1 || guests > 5000) {
+      toast.error("Please enter a valid number of guests.");
+      return;
+    }
+    if (!formData.eventType || !formData.timeSlot) {
+      toast.error("Please choose an event type and time slot.");
+      return;
+    }
+    if (!checkRateLimit("booking-submit", 3, 60_000)) {
+      toast.error("Too many attempts. Please wait a minute and try again.");
+      return;
+    }
+
+    // Local calendar date; toISOString() would shift to the previous day in IST.
+    const bookingDate = format(selectedDate, "yyyy-MM-dd");
 
     const { data: inserted, error } = await supabase
       .from("bookings")
       .insert({
         booking_date: bookingDate,
         status: "pending",
-        name: formData.name,
-        mobile: formData.mobile,
+        name,
+        mobile,
         email: clientUser.email,
         event_type: formData.eventType,
-        guest_count: formData.guests ? parseInt(formData.guests) : null,
+        guest_count: guests,
         time_slot: formData.timeSlot,
-        notes: formData.notes,
+        notes: formData.notes.trim(),
       })
       .select("id")
       .maybeSingle();
@@ -149,6 +176,8 @@ const BookingModal = ({
               <Input
                 id="name"
                 required
+                maxLength={100}
+                autoComplete="name"
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                 placeholder="Your name"
@@ -161,6 +190,8 @@ const BookingModal = ({
                 id="mobile"
                 type="tel"
                 required
+                maxLength={16}
+                autoComplete="tel"
                 value={formData.mobile}
                 onChange={(e) => setFormData({ ...formData, mobile: e.target.value })}
                 placeholder="+91 XXXXX XXXXX"
@@ -210,6 +241,8 @@ const BookingModal = ({
                 id="guests"
                 type="number"
                 required
+                min={1}
+                max={5000}
                 value={formData.guests}
                 onChange={(e) => setFormData({ ...formData, guests: e.target.value })}
                 placeholder="e.g., 150"
@@ -241,6 +274,7 @@ const BookingModal = ({
             <Label htmlFor="notes">Special Requirements / Notes</Label>
             <Textarea
               id="notes"
+              maxLength={1000}
               value={formData.notes}
               onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
               placeholder="Any specific requirements for décor, catering, audio-visual, etc."

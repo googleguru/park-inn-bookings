@@ -1,10 +1,32 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
-};
+const ALLOWED_ORIGINS = new Set([
+  "https://googleguru.github.io",
+  "http://localhost:8080",
+  "http://localhost:5173",
+]);
+
+const corsHeadersFor = (origin: string | null): Record<string, string> => ({
+  ...(origin && ALLOWED_ORIGINS.has(origin) ? { "Access-Control-Allow-Origin": origin } : {}),
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  Vary: "Origin",
+});
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+// Per-isolate throttle: "pull" is triggered by every public page view.
+const PULL_INTERVAL_MS = 5 * 60 * 1000;
+let lastPullAt = 0;
+
+interface GoogleEvent {
+  id: string;
+  status?: string;
+  summary?: string;
+  description?: string;
+  start?: { date?: string; dateTime?: string };
+  extendedProperties?: { private?: Record<string, string> };
+}
 
 const GATEWAY_URL =
   "https://connector-gateway.lovable.dev/google_calendar/calendar/v3";
@@ -13,12 +35,6 @@ interface Body {
   action: "create" | "delete" | "pull";
   bookingId?: string;
 }
-
-const json = (data: unknown, status = 200) =>
-  new Response(JSON.stringify(data), {
-    status,
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
-  });
 
 const gatewayHeaders = () => {
   const lovableKey = Deno.env.get("LOVABLE_API_KEY");
@@ -49,7 +65,15 @@ const toIsoDateTime = (date: string, hour: number) => {
 };
 
 Deno.serve(async (req) => {
+  const corsHeaders = corsHeadersFor(req.headers.get("Origin"));
+  const json = (data: unknown, status = 200) =>
+    new Response(JSON.stringify(data), {
+      status,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+  if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
 
   try {
     const supabase = createClient(
@@ -57,7 +81,27 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
 
-    const body = (await req.json()) as Body;
+    const body = (await req.json().catch(() => ({}))) as Body;
+    if (body.bookingId !== undefined && !UUID_RE.test(String(body.bookingId))) {
+      return json({ error: "Invalid bookingId" }, 400);
+    }
+
+    // Resolve the caller from their own JWT; the anon key alone identifies no user.
+    const token = (req.headers.get("Authorization") ?? "").replace(/^Bearer\s+/i, "");
+    const { data: { user } } = token
+      ? await supabase.auth.getUser(token)
+      : { data: { user: null } };
+    const isAdmin = async () => {
+      if (!user?.email) return false;
+      const { data } = await supabase
+        .from("admin_roles")
+        .select("id")
+        .eq("email", user.email)
+        .eq("is_active", true)
+        .maybeSingle();
+      return !!data;
+    };
+
     const headers = gatewayHeaders();
 
     // -------- CREATE event --------
@@ -70,6 +114,10 @@ Deno.serve(async (req) => {
         .eq("id", body.bookingId)
         .maybeSingle();
       if (error || !booking) return json({ error: "booking not found" }, 404);
+      if (!user || (booking.email !== user.email && !(await isAdmin()))) {
+        return json({ error: "Forbidden" }, 403);
+      }
+      if (booking.google_calendar_event_id) return json({ ok: true, eventId: booking.google_calendar_event_id });
 
       const [startH, endH] = timeSlotToHours(booking.time_slot);
       const event = {
@@ -90,7 +138,10 @@ Deno.serve(async (req) => {
         method: "POST", headers, body: JSON.stringify(event),
       });
       const data = await res.json();
-      if (!res.ok) return json({ error: "Google Calendar create failed", details: data }, 502);
+      if (!res.ok) {
+        console.error("calendar create failed:", JSON.stringify(data));
+        return json({ error: "Google Calendar create failed" }, 502);
+      }
 
       await supabase
         .from("bookings")
@@ -106,9 +157,14 @@ Deno.serve(async (req) => {
 
       const { data: booking } = await supabase
         .from("bookings")
-        .select("google_calendar_event_id")
+        .select("google_calendar_event_id, email, status")
         .eq("id", body.bookingId)
         .maybeSingle();
+
+      const isOwnerPending = !!user && booking?.email === user.email && booking?.status === "pending";
+      if (!user || (!isOwnerPending && !(await isAdmin()))) {
+        return json({ error: "Forbidden" }, 403);
+      }
 
       const eventId = booking?.google_calendar_event_id;
       if (!eventId) return json({ ok: true, skipped: true });
@@ -118,8 +174,8 @@ Deno.serve(async (req) => {
       });
       // 410 Gone is fine — already deleted upstream
       if (!res.ok && res.status !== 410 && res.status !== 404) {
-        const detail = await res.text();
-        return json({ error: "Google Calendar delete failed", details: detail }, 502);
+        console.error("calendar delete failed:", await res.text());
+        return json({ error: "Google Calendar delete failed" }, 502);
       }
       await res.text();
       return json({ ok: true });
@@ -127,6 +183,9 @@ Deno.serve(async (req) => {
 
     // -------- PULL: upsert external Google events as blocked dates --------
     if (body.action === "pull") {
+      if (Date.now() - lastPullAt < PULL_INTERVAL_MS) return json({ ok: true, skipped: true });
+      lastPullAt = Date.now();
+
       const now = new Date();
       const timeMin = new Date(now.getTime() - 7 * 86400000).toISOString();
       const timeMax = new Date(now.getTime() + 365 * 86400000).toISOString();
@@ -139,9 +198,12 @@ Deno.serve(async (req) => {
 
       const res = await fetch(url.toString(), { headers });
       const data = await res.json();
-      if (!res.ok) return json({ error: "Google Calendar pull failed", details: data }, 502);
+      if (!res.ok) {
+        console.error("calendar pull failed:", JSON.stringify(data));
+        return json({ error: "Google Calendar pull failed" }, 502);
+      }
 
-      const items: any[] = data.items ?? [];
+      const items: GoogleEvent[] = data.items ?? [];
       let upserts = 0;
 
       for (const ev of items) {
@@ -181,8 +243,7 @@ Deno.serve(async (req) => {
 
     return json({ error: "Unknown action" }, 400);
   } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
-    console.error("calendar-sync error:", msg);
-    return json({ error: msg }, 500);
+    console.error("calendar-sync error:", e instanceof Error ? e.message : String(e));
+    return json({ error: "Internal error" }, 500);
   }
 });

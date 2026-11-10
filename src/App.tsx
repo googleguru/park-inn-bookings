@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { HashRouter, Routes, Route } from "react-router-dom";
 import { ClientAuthProvider } from "@/contexts/ClientAuthContext";
+import { MotionConfig } from "motion/react";
 import Index from "./pages/Index";
 import AdminPage from "./pages/Admin";
 import Profile from "./pages/Profile";
@@ -29,6 +30,7 @@ const queryClient = new QueryClient({
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <ClientAuthProvider>
+    <MotionConfig reducedMotion="user">
     <TooltipProvider>
       <Toaster />
       <Sonner />
@@ -54,6 +56,7 @@ const App = () => (
         </Routes>
       </HashRouter>
     </TooltipProvider>
+    </MotionConfig>
     </ClientAuthProvider>
   </QueryClientProvider>
 );
