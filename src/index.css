@@ -10,33 +10,33 @@ All colors MUST be HSL.
 
 @layer base {
   :root {
-    --background: 40 20% 97%;
-    --foreground: 30 15% 15%;
+    --background: 40 33% 98%;
+    --foreground: 24 14% 10%;
 
     --card: 0 0% 100%;
-    --card-foreground: 30 15% 15%;
+    --card-foreground: 24 14% 10%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 30 15% 15%;
+    --popover-foreground: 24 14% 10%;
 
-    --primary: 38 92% 50%;
-    --primary-foreground: 30 15% 15%;
+    --primary: 34 60% 38%;
+    --primary-foreground: 40 40% 98%;
 
-    --secondary: 195 70% 35%;
-    --secondary-foreground: 0 0% 100%;
+    --secondary: 24 14% 10%;
+    --secondary-foreground: 40 33% 96%;
 
-    --muted: 40 15% 92%;
-    --muted-foreground: 30 10% 45%;
+    --muted: 38 25% 94%;
+    --muted-foreground: 28 9% 40%;
 
-    --accent: 42 95% 65%;
-    --accent-foreground: 30 15% 15%;
+    --accent: 40 60% 88%;
+    --accent-foreground: 24 14% 10%;
 
-    --destructive: 0 84% 60%;
+    --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 40 20% 88%;
-    --input: 40 20% 88%;
-    --ring: 38 92% 50%;
+    --border: 36 20% 88%;
+    --input: 36 20% 86%;
+    --ring: 34 60% 38%;
 
     --success: 142 71% 45%;
     --success-foreground: 0 0% 100%;
@@ -44,11 +44,13 @@ All colors MUST be HSL.
     --warning: 45 93% 58%;
     --warning-foreground: 30 15% 15%;
 
-    --gradient-primary: linear-gradient(135deg, hsl(38 92% 50%), hsl(42 95% 65%));
-    --gradient-hero: linear-gradient(180deg, hsl(40 20% 97% / 0.95), hsl(40 20% 97%));
+    --gold: 40 62% 62%;
 
-    --shadow-elegant: 0 10px 30px -10px hsl(38 92% 50% / 0.2);
-    --shadow-soft: 0 4px 16px -4px hsl(30 15% 15% / 0.08);
+    --gradient-primary: linear-gradient(135deg, hsl(34 60% 38%), hsl(40 62% 62%));
+    --gradient-hero: linear-gradient(180deg, hsl(24 14% 6% / 0.35), hsl(24 14% 6% / 0.85));
+
+    --shadow-elegant: 0 24px 48px -24px hsl(34 60% 30% / 0.35);
+    --shadow-soft: 0 1px 2px hsl(24 14% 10% / 0.04), 0 8px 24px -12px hsl(24 14% 10% / 0.12);
 
     --radius: 0.75rem;
 

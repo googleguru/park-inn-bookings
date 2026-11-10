@@ -8,6 +8,9 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { CheckCircle, Lock, Clock, LogIn } from "lucide-react";
 import BookingModal from "./BookingModal";
+import { BlurFade } from "@/components/magicui/blur-fade";
+import { BorderBeam } from "@/components/magicui/border-beam";
+import { format } from "date-fns";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useClientAuth } from "@/contexts/ClientAuthContext";
@@ -68,7 +71,7 @@ const BookingCalendar = () => {
   };
 
   const getDateStatus = (date: Date): DateStatus => {
-    const dateString = date.toISOString().split("T")[0];
+    const dateString = format(date, "yyyy-MM-dd");
     return bookedDates[dateString] || "available";
   };
 
@@ -110,10 +113,11 @@ const BookingCalendar = () => {
   };
 
   return (
-    <section id="calendar" className="py-20 bg-muted/30">
+    <section id="calendar" className="relative py-24 md:py-32 bg-muted/40">
       <div className="container mx-auto px-4">
-        <div className="text-center mb-12">
-          <h2 className="text-4xl md:text-5xl font-bold mb-4">Booking Calendar</h2>
+        <BlurFade inView className="text-center mb-14">
+          <p className="mb-4 text-xs font-semibold uppercase tracking-[0.25em] text-primary">Availability</p>
+          <h2 className="text-4xl md:text-5xl font-semibold mb-4">Booking Calendar</h2>
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
             Select an available date to book your event at Dhanlakshmi Park Inn
           </p>
@@ -122,18 +126,19 @@ const BookingCalendar = () => {
               Sign in with Google to request a booking
             </p>
           )}
-        </div>
+        </BlurFade>
 
-        <div className="max-w-4xl mx-auto">
-          <Card className="p-8 shadow-elegant">
+        <BlurFade inView delay={0.1} className="max-w-4xl mx-auto">
+          <Card className="relative overflow-hidden rounded-3xl border-border/70 p-6 md:p-10 shadow-elegant">
+            <BorderBeam size={120} duration={10} colorFrom="hsl(var(--gold))" colorTo="hsl(var(--primary))" borderWidth={1.5} />
             <div className="flex flex-wrap gap-4 justify-center mb-8">
-              <Badge variant="outline" className="flex items-center gap-2 px-4 py-2 bg-success/10 border-success/30">
+              <Badge variant="outline" className="flex items-center gap-2 rounded-full px-4 py-1.5 font-medium bg-success/10 border-success/30">
                 <CheckCircle className="w-4 h-4 text-success" />Available
               </Badge>
-              <Badge variant="outline" className="flex items-center gap-2 px-4 py-2 bg-warning/10 border-warning/30">
+              <Badge variant="outline" className="flex items-center gap-2 rounded-full px-4 py-1.5 font-medium bg-warning/10 border-warning/30">
                 <Clock className="w-4 h-4 text-warning" />Advanced Booked
               </Badge>
-              <Badge variant="outline" className="flex items-center gap-2 px-4 py-2 bg-destructive/10 border-destructive/30">
+              <Badge variant="outline" className="flex items-center gap-2 rounded-full px-4 py-1.5 font-medium bg-destructive/10 border-destructive/30">
                 <Lock className="w-4 h-4 text-destructive" />Booked
               </Badge>
             </div>
@@ -145,18 +150,18 @@ const BookingCalendar = () => {
                 onSelect={handleDateClick}
                 modifiers={modifiers}
                 modifiersStyles={modifiersStyles}
-                className="rounded-md border shadow-soft"
+                className="rounded-2xl border bg-background p-4 shadow-soft"
                 disabled={(date) => date < new Date()}
               />
             </div>
           </Card>
-        </div>
+        </BlurFade>
       </div>
 
       {/* Sign-in prompt overlay */}
       {showSignInPrompt && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
-          <Card className="w-full max-w-sm p-6 space-y-4 shadow-xl">
+          <Card className="w-full max-w-sm rounded-2xl p-6 space-y-4 shadow-elegant animate-in fade-in zoom-in-95 duration-300">
             <div className="text-center space-y-2">
               <LogIn className="mx-auto h-10 w-10 text-primary" />
               <h3 className="text-lg font-semibold">
