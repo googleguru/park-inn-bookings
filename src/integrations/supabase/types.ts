@@ -16,6 +16,8 @@ export type Database = {
     Tables: {
       admin_roles: {
         Row: {
+          active_session_at: string | null
+          active_session_id: string | null
           created_at: string
           email: string
           id: string
@@ -25,6 +27,8 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          active_session_at?: string | null
+          active_session_id?: string | null
           created_at?: string
           email: string
           id?: string
@@ -34,6 +38,8 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          active_session_at?: string | null
+          active_session_id?: string | null
           created_at?: string
           email?: string
           id?: string
@@ -125,6 +131,39 @@ export type Database = {
         }
         Relationships: []
       }
+      customer_access: {
+        Row: {
+          decided_at: string | null
+          decided_by: string | null
+          email: string
+          name: string | null
+          note: string | null
+          requested_at: string
+          status: string
+          user_id: string | null
+        }
+        Insert: {
+          decided_at?: string | null
+          decided_by?: string | null
+          email: string
+          name?: string | null
+          note?: string | null
+          requested_at?: string
+          status?: string
+          user_id?: string | null
+        }
+        Update: {
+          decided_at?: string | null
+          decided_by?: string | null
+          email?: string
+          name?: string | null
+          note?: string | null
+          requested_at?: string
+          status?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       booking_timeline: {
         Row: {
           booking_id: string
@@ -162,6 +201,8 @@ export type Database = {
       }
       bookings: {
         Row: {
+          locked_at: string | null
+          locked_by: string | null
           admin_notes: string | null
           advance_paid: number | null
           amount: number | null
@@ -184,6 +225,8 @@ export type Database = {
           user_id: string | null
         }
         Insert: {
+          locked_at?: string | null
+          locked_by?: string | null
           admin_notes?: string | null
           advance_paid?: number | null
           amount?: number | null
@@ -206,6 +249,8 @@ export type Database = {
           user_id?: string | null
         }
         Update: {
+          locked_at?: string | null
+          locked_by?: string | null
           admin_notes?: string | null
           advance_paid?: number | null
           amount?: number | null
@@ -335,7 +380,9 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      admin_session: { Args: { claim?: boolean }; Returns: Json }
       admin_touch_last_login: { Args: never; Returns: undefined }
+      current_admin_role: { Args: never; Returns: string }
       get_booked_dates: {
         Args: never
         Returns: {
@@ -344,6 +391,7 @@ export type Database = {
         }[]
       }
       is_admin: { Args: never; Returns: boolean }
+      is_approved_customer: { Args: never; Returns: boolean }
       is_finance_or_super: { Args: never; Returns: boolean }
       is_senior_admin: { Args: never; Returns: boolean }
       is_super_admin: { Args: never; Returns: boolean }

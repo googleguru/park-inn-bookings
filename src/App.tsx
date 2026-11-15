@@ -17,6 +17,7 @@ import { UserManagement } from "@/components/admin/UserManagement";
 import { AuditLogs } from "@/components/admin/AuditLogs";
 import { EventManagement } from "@/components/admin/EventManagement";
 import { AdminSettings } from "@/components/admin/AdminSettings";
+import { CustomerAccess } from "@/components/admin/CustomerAccess";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -46,6 +47,7 @@ const App = () => (
             <Route path="dashboard"  element={<DashboardOverview />} />
             <Route path="bookings"   element={<BookingManagement />} />
             <Route path="ledger"     element={<LedgerSystem />} />
+            <Route path="access"     element={<CustomerAccess />} />
             <Route path="users"      element={<UserManagement />} />
             <Route path="events"     element={<EventManagement />} />
             <Route path="audit-logs" element={<AuditLogs />} />
