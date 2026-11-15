@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { CheckCircle, Lock, Clock, LogIn } from "lucide-react";
+import { CheckCircle, Lock, Clock, LogIn, Hourglass, ShieldCheck, ShieldX } from "lucide-react";
 import BookingModal from "./BookingModal";
 import { BlurFade } from "@/components/magicui/blur-fade";
 import { BorderBeam } from "@/components/magicui/border-beam";
@@ -19,10 +19,13 @@ import { checkPasswordStrength } from "@/lib/passwordStrength";
 type DateStatus = "available" | "pending" | "approved" | "rejected" | "booked";
 
 const BookingCalendar = () => {
-  const { clientUser, signIn, signInWithEmail, signUpWithEmail, resetPassword, setPersistence, loading } = useClientAuth();
+  const { clientUser, accessStatus, requestAccess, signIn, signInWithEmail, signUpWithEmail, resetPassword, setPersistence, loading } = useClientAuth();
   const [date, setDate] = useState<Date | undefined>(new Date());
   const [showBookingModal, setShowBookingModal] = useState(false);
   const [showSignInPrompt, setShowSignInPrompt] = useState(false);
+  const [showAccessPrompt, setShowAccessPrompt] = useState(false);
+  const [wantsToBook, setWantsToBook] = useState(false);
+  const [requesting, setRequesting] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [bookedDates, setBookedDates] = useState<Record<string, DateStatus>>({});
   const [authMode, setAuthMode] = useState<"signin" | "signup" | "forgot">("signin");
@@ -63,9 +66,14 @@ const BookingCalendar = () => {
       console.error("Error fetching availability:", error);
       return;
     }
+    // A date can have several rows; the most significant status wins.
+    const rank: Partial<Record<string, number>> = { pending: 1, approved: 2, booked: 2 };
     const bookingsMap: Record<string, DateStatus> = {};
     (data ?? []).forEach((row: { booking_date: string; status: string }) => {
-      bookingsMap[row.booking_date] = row.status as DateStatus;
+      const current = bookingsMap[row.booking_date];
+      if ((rank[row.status] ?? 0) > (current ? rank[current] ?? 0 : 0)) {
+        bookingsMap[row.booking_date] = row.status as DateStatus;
+      }
     });
     setBookedDates(bookingsMap);
   };
@@ -95,7 +103,23 @@ const BookingCalendar = () => {
       return;
     }
 
-    setShowBookingModal(true);
+    setWantsToBook(true);
+  };
+
+  // Approval status loads asynchronously after sign-in, so decide once it is known.
+  useEffect(() => {
+    if (!wantsToBook || !clientUser || accessStatus === null) return;
+    setWantsToBook(false);
+    if (accessStatus === "approved") setShowBookingModal(true);
+    else setShowAccessPrompt(true);
+  }, [wantsToBook, clientUser, accessStatus]);
+
+  const handleRequestAccess = async () => {
+    setRequesting(true);
+    const res = await requestAccess();
+    setRequesting(false);
+    if (res.error) toast.error(res.error);
+    else toast.success("Request sent. We'll let you know once an admin approves it.");
   };
 
   const modifiers = {
@@ -124,6 +148,16 @@ const BookingCalendar = () => {
           {!clientUser && !loading && (
             <p className="mt-3 text-sm text-muted-foreground">
               Sign in with Google to request a booking
+            </p>
+          )}
+          {clientUser && accessStatus && accessStatus !== "approved" && (
+            <p className="mt-4 inline-flex items-center gap-2 rounded-full border border-border bg-card px-4 py-1.5 text-sm text-muted-foreground">
+              {accessStatus === "pending"
+                ? <Hourglass className="h-3.5 w-3.5 text-primary" />
+                : <ShieldCheck className="h-3.5 w-3.5 text-primary" />}
+              {accessStatus === "pending" ? "Your booking access is awaiting admin approval"
+                : accessStatus === "rejected" ? "Online booking isn't available for your account"
+                : "Pick a date to request booking access"}
             </p>
           )}
         </BlurFade>
@@ -235,7 +269,7 @@ const BookingCalendar = () => {
                 toast.success(authMode === "signin" ? "Signed in" : "Account created");
                 setShowSignInPrompt(false);
                 setAuthPassword("");
-                setShowBookingModal(true);
+                setWantsToBook(true);
               }}
             >
               {authMode === "signup" && (
@@ -337,6 +371,57 @@ const BookingCalendar = () => {
         </div>
       )}
 
+
+      {/* Approval gate */}
+      {showAccessPrompt && clientUser && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="access-title"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-secondary/40 p-4 backdrop-blur-sm"
+          onClick={() => setShowAccessPrompt(false)}
+        >
+          <Card
+            className="relative w-full max-w-sm overflow-hidden rounded-3xl p-7 text-center shadow-elegant animate-in fade-in zoom-in-95 duration-300"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <BorderBeam size={80} duration={8} colorFrom="hsl(var(--gold))" colorTo="hsl(var(--primary))" />
+            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-accent">
+              {accessStatus === "pending" ? <Hourglass className="h-6 w-6 text-primary" />
+                : accessStatus === "rejected" ? <ShieldX className="h-6 w-6 text-destructive" />
+                : <ShieldCheck className="h-6 w-6 text-primary" />}
+            </div>
+            <h3 id="access-title" className="text-xl font-semibold">
+              {accessStatus === "pending" ? "Approval pending"
+                : accessStatus === "rejected" ? "Request not approved"
+                : "Request booking access"}
+            </h3>
+            <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+              {accessStatus === "pending"
+                ? "Thanks! An admin is reviewing your account. You can book as soon as it's approved."
+                : accessStatus === "rejected"
+                ? "Your account wasn't approved for online booking. Please call us and we'll help you directly."
+                : "To keep our calendar genuine, an admin approves each customer once before their first booking."}
+            </p>
+            <p className="mt-3 truncate rounded-lg bg-muted px-3 py-1.5 text-xs text-muted-foreground">{clientUser.email}</p>
+            <div className="mt-6 flex flex-col gap-2">
+              {accessStatus === "none" && (
+                <Button className="h-11 rounded-full" disabled={requesting} onClick={handleRequestAccess}>
+                  {requesting ? "Sending…" : "Request access"}
+                </Button>
+              )}
+              {accessStatus === "rejected" && (
+                <Button asChild className="h-11 rounded-full">
+                  <a href="tel:+919841414699">Call 098414 14699</a>
+                </Button>
+              )}
+              <Button variant="ghost" className="rounded-full" onClick={() => setShowAccessPrompt(false)}>
+                Close
+              </Button>
+            </div>
+          </Card>
+        </div>
+      )}
 
       <BookingModal
         open={showBookingModal}

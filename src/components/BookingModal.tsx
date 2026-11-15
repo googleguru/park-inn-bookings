@@ -118,15 +118,16 @@ const BookingModal = ({
       .maybeSingle();
 
     if (error || !inserted) {
-      toast.error("Failed to create booking. Please try again.");
       console.error("Error creating booking:", error);
+      toast.error(
+        error?.message?.includes("already booked")
+          ? "Sorry, this date was just booked. Please choose another date."
+          : error?.code === "42501"
+            ? "Your account needs admin approval before you can book."
+            : "Failed to create booking. Please try again."
+      );
       return;
     }
-
-    // Mirror to Google Calendar (best-effort; non-blocking failure).
-    supabase.functions
-      .invoke("calendar-sync", { body: { action: "create", bookingId: inserted.id } })
-      .catch((err) => console.warn("Google Calendar sync skipped:", err));
 
     toast.success(
       `Booking request submitted for ${formatDate(selectedDate)}. Our team will review and contact you soon.`,

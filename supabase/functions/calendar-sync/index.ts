@@ -17,6 +17,7 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 
 // Per-isolate throttle: "pull" is triggered by every public page view.
 const PULL_INTERVAL_MS = 5 * 60 * 1000;
+const CONFIRMED = ["approved", "booked"];
 let lastPullAt = 0;
 
 interface GoogleEvent {
@@ -75,11 +76,10 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
 
+
   try {
-    const supabase = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-    );
+    const url = Deno.env.get("SUPABASE_URL")!;
+    const supabase = createClient(url, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 
     const body = (await req.json().catch(() => ({}))) as Body;
     if (body.bookingId !== undefined && !UUID_RE.test(String(body.bookingId))) {
@@ -87,26 +87,28 @@ Deno.serve(async (req) => {
     }
 
     // Resolve the caller from their own JWT; the anon key alone identifies no user.
-    const token = (req.headers.get("Authorization") ?? "").replace(/^Bearer\s+/i, "");
+    const authHeader = req.headers.get("Authorization") ?? "";
+    const token = authHeader.replace(/^Bearer\s+/i, "");
     const { data: { user } } = token
       ? await supabase.auth.getUser(token)
       : { data: { user: null } };
+    // Ask the database with the caller's own token so the Google-only and
+    // single-device admin checks in is_admin() apply here too.
     const isAdmin = async () => {
-      if (!user?.email) return false;
-      const { data } = await supabase
-        .from("admin_roles")
-        .select("id")
-        .eq("email", user.email)
-        .eq("is_active", true)
-        .maybeSingle();
-      return !!data;
+      if (!user) return false;
+      const asCaller = createClient(url, Deno.env.get("SUPABASE_ANON_KEY")!, {
+        global: { headers: { Authorization: authHeader } },
+      });
+      const { data } = await asCaller.rpc("is_admin");
+      return data === true;
     };
 
     const headers = gatewayHeaders();
 
-    // -------- CREATE event --------
+    // -------- CREATE event (admins, confirmed bookings only) --------
     if (body.action === "create") {
       if (!body.bookingId) return json({ error: "bookingId required" }, 400);
+      if (!(await isAdmin())) return json({ error: "Forbidden" }, 403);
 
       const { data: booking, error } = await supabase
         .from("bookings")
@@ -114,8 +116,8 @@ Deno.serve(async (req) => {
         .eq("id", body.bookingId)
         .maybeSingle();
       if (error || !booking) return json({ error: "booking not found" }, 404);
-      if (!user || (booking.email !== user.email && !(await isAdmin()))) {
-        return json({ error: "Forbidden" }, 403);
+      if (!CONFIRMED.includes(booking.status)) {
+        return json({ error: "Only approved bookings are added to Google Calendar" }, 409);
       }
       if (booking.google_calendar_event_id) return json({ ok: true, eventId: booking.google_calendar_event_id });
 
@@ -169,7 +171,7 @@ Deno.serve(async (req) => {
       const eventId = booking?.google_calendar_event_id;
       if (!eventId) return json({ ok: true, skipped: true });
 
-      const res = await fetch(`${GATEWAY_URL}/calendars/primary/events/${eventId}`, {
+      const res = await fetch(`${GATEWAY_URL}/calendars/primary/events/${encodeURIComponent(eventId)}`, {
         method: "DELETE", headers,
       });
       // 410 Gone is fine — already deleted upstream
@@ -178,56 +180,96 @@ Deno.serve(async (req) => {
         return json({ error: "Google Calendar delete failed" }, 502);
       }
       await res.text();
+      await supabase
+        .from("bookings")
+        .update({ google_calendar_event_id: null })
+        .eq("id", body.bookingId);
       return json({ ok: true });
     }
 
-    // -------- PULL: upsert external Google events as blocked dates --------
+    // -------- PULL: the admin's Google Calendar is the master for dates --------
     if (body.action === "pull") {
       if (Date.now() - lastPullAt < PULL_INTERVAL_MS) return json({ ok: true, skipped: true });
       lastPullAt = Date.now();
 
       const now = new Date();
-      const timeMin = new Date(now.getTime() - 7 * 86400000).toISOString();
-      const timeMax = new Date(now.getTime() + 365 * 86400000).toISOString();
-      const url = new URL(`${GATEWAY_URL}/calendars/primary/events`);
-      url.searchParams.set("timeMin", timeMin);
-      url.searchParams.set("timeMax", timeMax);
-      url.searchParams.set("singleEvents", "true");
-      url.searchParams.set("maxResults", "250");
-      url.searchParams.set("orderBy", "startTime");
+      const windowStart = new Date(now.getTime() - 7 * 86400000);
+      const windowEnd = new Date(now.getTime() + 365 * 86400000);
 
-      const res = await fetch(url.toString(), { headers });
-      const data = await res.json();
-      if (!res.ok) {
-        console.error("calendar pull failed:", JSON.stringify(data));
-        return json({ error: "Google Calendar pull failed" }, 502);
+      // Read every page: a missing event is only treated as deleted when the
+      // listing is known to be complete.
+      const items: GoogleEvent[] = [];
+      let pageToken: string | undefined;
+      do {
+        const listUrl = new URL(`${GATEWAY_URL}/calendars/primary/events`);
+        listUrl.searchParams.set("timeMin", windowStart.toISOString());
+        listUrl.searchParams.set("timeMax", windowEnd.toISOString());
+        listUrl.searchParams.set("singleEvents", "true");
+        listUrl.searchParams.set("maxResults", "250");
+        if (pageToken) listUrl.searchParams.set("pageToken", pageToken);
+
+        const res = await fetch(listUrl.toString(), { headers });
+        const data = await res.json();
+        if (!res.ok) {
+          console.error("calendar pull failed:", JSON.stringify(data));
+          lastPullAt = 0;
+          return json({ error: "Google Calendar pull failed" }, 502);
+        }
+        items.push(...((data.items ?? []) as GoogleEvent[]));
+        pageToken = data.nextPageToken;
+      } while (pageToken);
+
+      const startDateOf = (ev: GoogleEvent) =>
+        ev.start?.date ?? (ev.start?.dateTime ? ev.start.dateTime.slice(0, 10) : null);
+      const live = new Map<string, GoogleEvent>();
+      for (const ev of items) if (ev.status !== "cancelled" && startDateOf(ev)) live.set(ev.id, ev);
+
+      const from = windowStart.toISOString().slice(0, 10);
+      const to = windowEnd.toISOString().slice(0, 10);
+      const { data: linked, error: linkedError } = await supabase
+        .from("bookings")
+        .select("id, booking_date, status, is_blocked, google_calendar_event_id")
+        .not("google_calendar_event_id", "is", null)
+        .gte("booking_date", from)
+        .lte("booking_date", to);
+      if (linkedError) throw linkedError;
+
+      const known = new Set<string>();
+      let inserted = 0, moved = 0, removed = 0;
+
+      for (const b of linked ?? []) {
+        const eventId = b.google_calendar_event_id as string;
+        known.add(eventId);
+        const ev = live.get(eventId);
+
+        if (!ev) {
+          if (b.is_blocked) {
+            // Blocked date that came from Google and was deleted there.
+            await supabase.from("bookings").delete().eq("id", b.id);
+            removed++;
+          } else if (CONFIRMED.includes(b.status)) {
+            await supabase.from("bookings").update({
+              status: "cancelled",
+              cancelled_at: new Date().toISOString(),
+              admin_notes: "Event was deleted from the admin Google Calendar",
+            }).eq("id", b.id);
+            removed++;
+          }
+          continue;
+        }
+
+        const date = startDateOf(ev)!;
+        if (date !== b.booking_date) {
+          const { error } = await supabase.from("bookings").update({ booking_date: date }).eq("id", b.id);
+          if (error) console.error("could not move booking", b.id, error.message);
+          else moved++;
+        }
       }
 
-      const items: GoogleEvent[] = data.items ?? [];
-      let upserts = 0;
-
-      for (const ev of items) {
-        const lovableId = ev.extendedProperties?.private?.lovable_booking_id;
-        if (lovableId) continue; // already mirrors our booking — skip
-
-        const startDate =
-          ev.start?.date ?? (ev.start?.dateTime ? ev.start.dateTime.slice(0, 10) : null);
-        if (!startDate) continue;
-
-        // Skip cancelled
-        if (ev.status === "cancelled") continue;
-
-        // Upsert by google_calendar_event_id (find existing first)
-        const { data: existing } = await supabase
-          .from("bookings")
-          .select("id")
-          .eq("google_calendar_event_id", ev.id)
-          .maybeSingle();
-
-        if (existing) continue;
-
-        await supabase.from("bookings").insert({
-          booking_date: startDate,
+      for (const ev of live.values()) {
+        if (known.has(ev.id) || ev.extendedProperties?.private?.lovable_booking_id) continue;
+        const { error } = await supabase.from("bookings").insert({
+          booking_date: startDateOf(ev)!,
           status: "booked",
           name: ev.summary ?? "Google Calendar event",
           event_type: "external",
@@ -235,10 +277,11 @@ Deno.serve(async (req) => {
           is_blocked: true,
           google_calendar_event_id: ev.id,
         });
-        upserts++;
+        if (error) console.error("could not import event", ev.id, error.message);
+        else inserted++;
       }
 
-      return json({ ok: true, processed: items.length, inserted: upserts });
+      return json({ ok: true, processed: items.length, inserted, moved, removed });
     }
 
     return json({ error: "Unknown action" }, 400);

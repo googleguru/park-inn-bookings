@@ -19,8 +19,27 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import {
   Search, Download, RefreshCw, Edit2, Trash2,
-  ChevronLeft, ChevronRight, AlertCircle, Plus,
+  ChevronLeft, ChevronRight, AlertCircle, Plus, Lock, Unlock,
 } from 'lucide-react';
+
+const CONFIRMED = ['approved', 'booked'];
+const EVENT_TYPES = [
+  ['wedding', 'Wedding'], ['reception', 'Reception'], ['birthday', 'Birthday Party'],
+  ['corporate', 'Corporate Meet'], ['anniversary', 'Anniversary'], ['other', 'Other'],
+] as const;
+const TIME_SLOTS = [
+  ['morning', 'Morning'], ['afternoon', 'Afternoon'], ['evening', 'Evening'],
+  ['night', 'Night'], ['fullday', 'Full Day'],
+] as const;
+const labelFor = (options: readonly (readonly [string, string])[], value: string | null) =>
+  options.find(([v]) => v === value?.toLowerCase())?.[1] ?? value;
+
+/** Best-effort mirror to the admin Google Calendar; the next pull reconciles failures. */
+async function syncCalendar(action: 'create' | 'delete', bookingId: string) {
+  const { error } = await supabase.functions.invoke('calendar-sync', { body: { action, bookingId } });
+  if (error) console.warn(`Google Calendar  failed:`, error);
+  return !error;
+}
 
 type BookingStatus = 'pending' | 'approved' | 'rejected' | 'booked';
 type PaymentStatus = 'pending' | 'paid' | 'partial' | 'refunded' | 'cancelled';
@@ -58,8 +77,9 @@ type EditForm = z.infer<typeof editSchema>;
 const PAGE_SIZE = 10;
 
 export function BookingManagement() {
-  const { hasPermission } = useAdmin();
+  const { adminUser, hasPermission } = useAdmin();
   const { log } = useAuditLog();
+  const isSuper = adminUser?.role === 'super_admin';
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
@@ -101,6 +121,7 @@ export function BookingManagement() {
   const paged = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   const editTarget_ = bookings.find(b => b.id === editTarget);
+  const coreLocked = !!editTarget_?.locked_at && !isSuper;
 
   const form = useForm<EditForm>({
     resolver: zodResolver(editSchema),
@@ -109,9 +130,9 @@ export function BookingManagement() {
           name:           editTarget_.name ?? '',
           email:          editTarget_.email ?? '',
           mobile:         editTarget_.mobile ?? '',
-          event_type:     editTarget_.event_type ?? '',
+          event_type:     (editTarget_.event_type ?? '').toLowerCase(),
           guest_count:    editTarget_.guest_count ?? 0,
-          time_slot:      editTarget_.time_slot ?? '',
+          time_slot:      (editTarget_.time_slot ?? '').toLowerCase().replace(/\s+/g, ''),
           notes:          editTarget_.notes ?? '',
           status:         editTarget_.status as 'approved' | 'booked' | 'pending' | 'rejected',
           payment_status: (editTarget_.payment_status ?? 'pending') as PaymentStatus,
@@ -124,35 +145,70 @@ export function BookingManagement() {
   const updateMutation = useMutation({
     mutationFn: async (data: EditForm & { id: string }) => {
       const { id, ...rest } = data;
-      const clean = {
-        name:           sanitizeInput(rest.name),
-        email:          rest.email,
-        mobile:         rest.mobile,
-        event_type:     rest.event_type,
-        guest_count:    rest.guest_count,
-        time_slot:      rest.time_slot,
-        notes:          rest.notes ? sanitizeInput(rest.notes) : null,
-        status:         rest.status,
+      const before = bookings.find(b => b.id === id);
+      const payment = {
         payment_status: rest.payment_status,
         amount:         rest.amount,
         advance_paid:   rest.advance_paid,
       };
+      // A locked booking only accepts payment updates unless a super admin edits it.
+      const clean = before?.locked_at && !isSuper
+        ? payment
+        : {
+            ...payment,
+            name:        sanitizeInput(rest.name),
+            email:       rest.email,
+            mobile:      rest.mobile,
+            event_type:  rest.event_type,
+            guest_count: rest.guest_count,
+            time_slot:   rest.time_slot,
+            notes:       rest.notes ? sanitizeInput(rest.notes) : null,
+            status:      rest.status,
+          };
       const { error } = await supabase.from('bookings').update(clean).eq('id', id);
       if (error) throw error;
-      return { id, ...clean };
+
+      // Google Calendar mirrors confirmed bookings only.
+      const nowConfirmed = CONFIRMED.includes('status' in clean ? clean.status : before?.status ?? '');
+      let calendarOk = true;
+      if (nowConfirmed && !before?.google_calendar_event_id) calendarOk = await syncCalendar('create', id);
+      if (!nowConfirmed && before?.google_calendar_event_id) calendarOk = await syncCalendar('delete', id);
+      return { id, ...clean, calendarOk };
     },
-    onSuccess: async (result) => {
+    onSuccess: async ({ calendarOk, ...result }) => {
       await log({ action: 'UPDATE_BOOKING', resourceType: 'booking', resourceId: result.id, newValues: result });
       queryClient.invalidateQueries({ queryKey: ['admin-bookings'] });
       queryClient.invalidateQueries({ queryKey: ['admin-bookings-summary'] });
       setEditTarget(null);
-      toast({ title: 'Booking updated' });
+      toast(calendarOk
+        ? { title: 'Booking updated' }
+        : { title: 'Booking updated', description: 'Google Calendar could not be updated; it will retry on the next sync.' });
     },
     onError: (e: Error) => toast({ title: 'Update failed', description: e.message, variant: 'destructive' }),
   });
 
+  const lockMutation = useMutation({
+    mutationFn: async ({ id, lock }: { id: string; lock: boolean }) => {
+      const { error } = await supabase
+        .from('bookings')
+        .update(lock
+          ? { locked_at: new Date().toISOString(), locked_by: adminUser!.email }
+          : { locked_at: null, locked_by: null })
+        .eq('id', id);
+      if (error) throw error;
+      return { id, lock };
+    },
+    onSuccess: async ({ id, lock }) => {
+      await log({ action: lock ? 'LOCK_BOOKING' : 'UNLOCK_BOOKING', resourceType: 'booking', resourceId: id });
+      queryClient.invalidateQueries({ queryKey: ['admin-bookings'] });
+      toast({ title: lock ? 'Booking locked' : 'Booking unlocked' });
+    },
+    onError: (e: Error) => toast({ title: 'Failed', description: e.message, variant: 'destructive' }),
+  });
+
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
+      if (bookings.find(b => b.id === id)?.google_calendar_event_id) await syncCalendar('delete', id);
       const { error } = await supabase.from('bookings').delete().eq('id', id);
       if (error) throw error;
       return id;
@@ -271,14 +327,21 @@ export function BookingManagement() {
                       <p className="text-xs text-muted-foreground truncate max-w-[140px]">{b.email}</p>
                     </td>
                     <td className="px-4 py-3">
-                      <p className="whitespace-nowrap">{b.event_type ?? '—'}</p>
-                      <p className="text-xs text-muted-foreground">{b.time_slot}</p>
+                      <p className="whitespace-nowrap">{labelFor(EVENT_TYPES, b.event_type) ?? "—"}</p>
+                      <p className="text-xs text-muted-foreground">{labelFor(TIME_SLOTS, b.time_slot)}</p>
                     </td>
                     <td className="px-4 py-3 text-center">{b.guest_count ?? '—'}</td>
                     <td className="px-4 py-3">
+                      <div className="flex items-center gap-1.5">
                       <Badge className={`text-[10px] border-0 ${STATUS_STYLE[b.status as BookingStatus] ?? ''}`}>
                         {b.status}
                       </Badge>
+                        {b.locked_at && (
+                          <span title={`Locked by ${b.locked_by ?? "system"}`} className="text-primary">
+                            <Lock size={12} aria-label="Locked" />
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td className="px-4 py-3">
                       <Badge className={`text-[10px] border-0 ${PAYMENT_STYLE[(b.payment_status ?? 'pending') as PaymentStatus]}`}>
@@ -300,6 +363,20 @@ export function BookingManagement() {
                             >
                               <Edit2 size={13} />
                             </Button>
+                            {isSuper && CONFIRMED.includes(b.status) && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7"
+                                title={b.locked_at ? "Unlock booking" : "Lock booking"}
+                                aria-label={b.locked_at ? "Unlock booking" : "Lock booking"}
+                                disabled={lockMutation.isPending}
+                                onClick={() => lockMutation.mutate({ id: b.id, lock: !b.locked_at })}
+                              >
+                                {b.locked_at ? <Unlock size={13} /> : <Lock size={13} />}
+                              </Button>
+                            )}
+                            {(!b.locked_at || isSuper) && (
                             <Button
                               variant="ghost"
                               size="icon"
@@ -308,6 +385,7 @@ export function BookingManagement() {
                             >
                               <Trash2 size={13} />
                             </Button>
+                            )}
                           </>
                         )}
                       </div>
@@ -343,6 +421,15 @@ export function BookingManagement() {
           <DialogHeader>
             <DialogTitle>Edit Booking</DialogTitle>
           </DialogHeader>
+          {coreLocked && (
+            <div className="flex items-start gap-3 rounded-xl border border-primary/25 bg-accent/40 p-3 text-sm">
+              <Lock size={15} className="mt-0.5 shrink-0 text-primary" />
+              <p>
+                This booking is locked{editTarget_?.locked_by ? ` by ${editTarget_.locked_by}` : ''}. You can update payment details;
+                other changes need a super admin to unlock it.
+              </p>
+            </div>
+          )}
           <Form {...form}>
             <form
               onSubmit={form.handleSubmit(data => updateMutation.mutate({ id: editTarget!, ...data }))}
@@ -353,7 +440,7 @@ export function BookingManagement() {
                   <FormField key={field} control={form.control} name={field} render={({ field: f }) => (
                     <FormItem className={field === 'name' ? 'col-span-2 sm:col-span-1' : ''}>
                       <FormLabel className="capitalize">{field}</FormLabel>
-                      <FormControl><Input {...f} /></FormControl>
+                      <FormControl><Input {...f} disabled={coreLocked} /></FormControl>
                       <FormMessage />
                     </FormItem>
                   )} />
@@ -361,11 +448,11 @@ export function BookingManagement() {
                 <FormField control={form.control} name="event_type" render={({ field: f }) => (
                   <FormItem>
                     <FormLabel>Event Type</FormLabel>
-                    <Select value={f.value} onValueChange={f.onChange}>
+                    <Select value={f.value} onValueChange={f.onChange} disabled={coreLocked}>
                       <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
                       <SelectContent>
-                        {['Wedding','Reception','Birthday','Corporate','Anniversary','Other'].map(e => (
-                          <SelectItem key={e} value={e}>{e}</SelectItem>
+                        {EVENT_TYPES.map(([value, label]) => (
+                          <SelectItem key={value} value={value}>{label}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
@@ -375,18 +462,18 @@ export function BookingManagement() {
                 <FormField control={form.control} name="guest_count" render={({ field: f }) => (
                   <FormItem>
                     <FormLabel>Guest Count</FormLabel>
-                    <FormControl><Input type="number" {...f} /></FormControl>
+                    <FormControl><Input type="number" {...f} disabled={coreLocked} /></FormControl>
                     <FormMessage />
                   </FormItem>
                 )} />
                 <FormField control={form.control} name="time_slot" render={({ field: f }) => (
                   <FormItem>
                     <FormLabel>Time Slot</FormLabel>
-                    <Select value={f.value} onValueChange={f.onChange}>
+                    <Select value={f.value} onValueChange={f.onChange} disabled={coreLocked}>
                       <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
                       <SelectContent>
-                        {['Morning','Afternoon','Evening','Night','Full Day'].map(s => (
-                          <SelectItem key={s} value={s}>{s}</SelectItem>
+                        {TIME_SLOTS.map(([value, label]) => (
+                          <SelectItem key={value} value={value}>{label}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
@@ -396,7 +483,7 @@ export function BookingManagement() {
                 <FormField control={form.control} name="status" render={({ field: f }) => (
                   <FormItem>
                     <FormLabel>Booking Status</FormLabel>
-                    <Select value={f.value} onValueChange={f.onChange}>
+                    <Select value={f.value} onValueChange={f.onChange} disabled={coreLocked}>
                       <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
                       <SelectContent>
                         {(['pending','approved','rejected','booked'] as const).map(s => (
@@ -438,7 +525,7 @@ export function BookingManagement() {
                 <FormField control={form.control} name="notes" render={({ field: f }) => (
                   <FormItem className="col-span-2">
                     <FormLabel>Notes</FormLabel>
-                    <FormControl><Textarea {...f} rows={3} /></FormControl>
+                    <FormControl><Textarea {...f} rows={3} disabled={coreLocked} /></FormControl>
                     <FormMessage />
                   </FormItem>
                 )} />

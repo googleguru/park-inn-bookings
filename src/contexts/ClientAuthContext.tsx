@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
 export interface ClientUser {
@@ -8,9 +8,15 @@ export interface ClientUser {
   avatarUrl: string;
 }
 
+export type AccessStatus = 'none' | 'pending' | 'approved' | 'rejected';
+
 interface ClientAuthContextValue {
   clientUser: ClientUser | null;
   loading: boolean;
+  /** Admin approval state for booking; null while unknown or signed out. */
+  accessStatus: AccessStatus | null;
+  requestAccess: (name?: string) => Promise<{ error?: string }>;
+  refreshAccess: () => Promise<void>;
   signIn: () => Promise<void>;
   signInWithEmail: (email: string, password: string) => Promise<{ error?: string }>;
   signUpWithEmail: (email: string, password: string, name?: string) => Promise<{ error?: string }>;
@@ -24,6 +30,7 @@ const ClientAuthContext = createContext<ClientAuthContextValue | null>(null);
 export function ClientAuthProvider({ children }: { children: React.ReactNode }) {
   const [clientUser, setClientUser] = useState<ClientUser | null>(null);
   const [loading, setLoading] = useState(true);
+  const [accessStatus, setAccessStatus] = useState<AccessStatus | null>(null);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -55,6 +62,45 @@ export function ClientAuthProvider({ children }: { children: React.ReactNode }) 
 
     return () => subscription.unsubscribe();
   }, []);
+
+  const refreshAccess = useCallback(async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    const email = session?.user?.email?.toLowerCase();
+    if (!email) {
+      setAccessStatus(null);
+      return;
+    }
+    const { data, error } = await supabase
+      .from('customer_access')
+      .select('status')
+      .eq('email', email)
+      .maybeSingle();
+    if (error) {
+      console.error('Could not load access status:', error);
+      setAccessStatus(null);
+      return;
+    }
+    setAccessStatus((data?.status as AccessStatus | undefined) ?? 'none');
+  }, []);
+
+  const userId = clientUser?.id;
+  useEffect(() => {
+    if (userId) refreshAccess();
+    else setAccessStatus(null);
+  }, [userId, refreshAccess]);
+
+  const requestAccess = async (name?: string) => {
+    if (!clientUser) return { error: 'Please sign in first.' };
+    const { error } = await supabase.from('customer_access').insert({
+      email: clientUser.email.toLowerCase(),
+      user_id: clientUser.id,
+      name: (name ?? clientUser.name).trim().slice(0, 100) || null,
+    });
+    // 23505: a request already exists, so just reload its status.
+    if (error && error.code !== '23505') return { error: 'Could not send your request. Please try again.' };
+    await refreshAccess();
+    return {};
+  };
 
   const signIn = async () => {
     const base = `${window.location.origin}${import.meta.env.BASE_URL}`.replace(/\/$/, '');
@@ -122,7 +168,7 @@ export function ClientAuthProvider({ children }: { children: React.ReactNode }) 
   };
 
   return (
-    <ClientAuthContext.Provider value={{ clientUser, loading, signIn, signInWithEmail, signUpWithEmail, resetPassword, setPersistence, signOut }}>
+    <ClientAuthContext.Provider value={{ clientUser, loading, accessStatus, requestAccess, refreshAccess, signIn, signInWithEmail, signUpWithEmail, resetPassword, setPersistence, signOut }}>
       {children}
     </ClientAuthContext.Provider>
   );
