@@ -8,16 +8,14 @@ import { MotionConfig } from "motion/react";
 import Index from "./pages/Index";
 import AdminPage from "./pages/Admin";
 import Profile from "./pages/Profile";
-import ResetPassword from "./pages/ResetPassword";
+import Setup from "./pages/Setup";
 import NotFound from "./pages/NotFound";
-import { DashboardOverview } from "@/components/admin/DashboardOverview";
-import { BookingManagement } from "@/components/admin/BookingManagement";
-import { LedgerSystem } from "@/components/admin/LedgerSystem";
-import { UserManagement } from "@/components/admin/UserManagement";
-import { AuditLogs } from "@/components/admin/AuditLogs";
-import { EventManagement } from "@/components/admin/EventManagement";
-import { AdminSettings } from "@/components/admin/AdminSettings";
-import { CustomerAccess } from "@/components/admin/CustomerAccess";
+import { Dashboard } from "@/components/admin/Dashboard";
+import { Bookings } from "@/components/admin/Bookings";
+import { Customers } from "@/components/admin/Customers";
+import { Money } from "@/components/admin/Money";
+import { Activity } from "@/components/admin/Activity";
+import { Settings } from "@/components/admin/Settings";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -40,18 +38,16 @@ const App = () => (
           {/* Public routes */}
           <Route path="/" element={<Index />} />
           <Route path="/profile" element={<Profile />} />
-          <Route path="/reset-password" element={<ResetPassword />} />
+          <Route path="/setup" element={<Setup />} />
 
           {/* Admin section — AdminPage wraps all sub-routes in AdminProvider + AdminGuard */}
           <Route path="/admin" element={<AdminPage />}>
-            <Route path="dashboard"  element={<DashboardOverview />} />
-            <Route path="bookings"   element={<BookingManagement />} />
-            <Route path="ledger"     element={<LedgerSystem />} />
-            <Route path="access"     element={<CustomerAccess />} />
-            <Route path="users"      element={<UserManagement />} />
-            <Route path="events"     element={<EventManagement />} />
-            <Route path="audit-logs" element={<AuditLogs />} />
-            <Route path="settings"   element={<AdminSettings />} />
+            <Route path="dashboard" element={<Dashboard />} />
+            <Route path="bookings"  element={<Bookings />} />
+            <Route path="customers" element={<Customers />} />
+            <Route path="money"     element={<Money />} />
+            <Route path="activity"  element={<Activity />} />
+            <Route path="settings"  element={<Settings />} />
           </Route>
 
           <Route path="*" element={<NotFound />} />
