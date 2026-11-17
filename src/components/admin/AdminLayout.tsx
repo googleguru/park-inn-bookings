@@ -1,43 +1,37 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'motion/react';
-import { useAdmin } from '@/contexts/AdminContext';
+import { LAST_ACTIVITY_KEY, useAdmin } from '@/contexts/AdminContext';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import {
-  LayoutDashboard, CalendarDays, DollarSign, Users, UserCheck,
-  TrendingUp, ClipboardList, Settings, LogOut,
+  LayoutDashboard, CalendarDays, Wallet, Users, ClipboardList, Settings, LogOut,
   Menu, Sun, Moon, ShieldCheck, Lock,
 } from 'lucide-react';
 
 const IDLE_LIMIT_MS = 15 * 60 * 1000;
 const IDLE_WARNING_MS = 60 * 1000;
-const LAST_ACTIVITY_KEY = 'admin-last-activity';
 
 const ROLE_BADGE: Record<string, { label: string; cls: string }> = {
-  super_admin:     { label: 'Super Admin',     cls: 'bg-gold/20 text-primary' },
-  admin:           { label: 'Admin',           cls: 'bg-blue-500/10 text-blue-700 dark:text-blue-300' },
-  finance_manager: { label: 'Finance Manager', cls: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300' },
+  super_admin: { label: 'Super Admin', cls: 'bg-gold/20 text-gold' },
+  admin:       { label: 'Admin',       cls: 'bg-blue-400/15 text-blue-200' },
 };
 
 const NAV = [
-  { to: '/admin/dashboard',   label: 'Dashboard',        icon: LayoutDashboard, roles: ['super_admin','admin','finance_manager'] },
-  { to: '/admin/bookings',    label: 'Bookings',         icon: CalendarDays,    roles: ['super_admin','admin'] },
-  { to: '/admin/access',      label: 'Customer Access',  icon: UserCheck,       roles: ['super_admin','admin'] },
-  { to: '/admin/ledger',      label: 'Ledger',           icon: DollarSign,      roles: ['super_admin','admin','finance_manager'] },
-  { to: '/admin/users',       label: 'Users',            icon: Users,           roles: ['super_admin','admin'] },
-  { to: '/admin/events',      label: 'Events & Pricing', icon: TrendingUp,      roles: ['super_admin','admin'] },
-  { to: '/admin/audit-logs',  label: 'Audit Logs',       icon: ClipboardList,   roles: ['super_admin','admin'] },
-  { to: '/admin/settings',    label: 'Settings',         icon: Settings,        roles: ['super_admin'] },
+  { to: '/admin/dashboard',  label: 'Dashboard',          icon: LayoutDashboard },
+  { to: '/admin/bookings',   label: 'Bookings',           icon: CalendarDays },
+  { to: '/admin/customers',  label: 'Customers',          icon: Users },
+  { to: '/admin/money',      label: 'Income & Expenses',  icon: Wallet },
+  { to: '/admin/activity',   label: 'Activity',           icon: ClipboardList },
+  { to: '/admin/settings',   label: 'Settings',           icon: Settings },
 ];
 
 function SidebarNav({ role, onNav }: { role: string; onNav?: () => void }) {
   const { adminUser, signOut } = useAdmin();
   const navigate = useNavigate();
   const badge = ROLE_BADGE[role];
-  const allowed = NAV.filter(n => n.roles.includes(role));
 
   const handleSignOut = async () => {
     await signOut();
@@ -59,7 +53,7 @@ function SidebarNav({ role, onNav }: { role: string; onNav?: () => void }) {
       </div>
 
       <nav className="flex-1 space-y-0.5 overflow-y-auto px-3 py-2">
-        {allowed.map(({ to, label, icon: Icon }) => (
+        {NAV.map(({ to, label, icon: Icon }) => (
           <NavLink key={to} to={to} onClick={onNav} className="relative block">
             {({ isActive }) => (
               <span
@@ -86,13 +80,12 @@ function SidebarNav({ role, onNav }: { role: string; onNav?: () => void }) {
       <div className="m-3 rounded-2xl bg-white/5 p-3 ring-1 ring-white/10">
         <div className="flex items-center gap-3">
           <Avatar className="h-9 w-9 shrink-0 ring-2 ring-gold/40">
-            <AvatarImage src={adminUser?.avatarUrl} alt="" referrerPolicy="no-referrer" />
             <AvatarFallback className="bg-gold/20 text-sm font-semibold text-gold">
-              {adminUser?.name?.[0]?.toUpperCase() ?? 'A'}
+              {adminUser?.email?.[0]?.toUpperCase() ?? 'A'}
             </AvatarFallback>
           </Avatar>
           <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-medium leading-tight">{adminUser?.name}</p>
+            <p className="truncate text-sm font-medium leading-tight">{adminUser?.email.split('@')[0]}</p>
             <p className="truncate text-[11px] text-secondary-foreground/50">{adminUser?.email}</p>
           </div>
         </div>
@@ -189,9 +182,9 @@ export function AdminLayout() {
     return () => root.classList.remove('dark');
   }, [isDark]);
 
-  const lock = useCallback(async () => {
+  const lock = useCallback(() => {
     localStorage.removeItem(LAST_ACTIVITY_KEY);
-    await endSession('The admin console locked after 15 minutes of inactivity. Sign in with Google to continue.');
+    endSession('The admin console locked after 15 minutes of inactivity. Sign in again to continue.');
     navigate('/admin', { replace: true });
   }, [endSession, navigate]);
 

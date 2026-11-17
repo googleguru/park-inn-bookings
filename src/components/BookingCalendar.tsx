@@ -1,140 +1,117 @@
-import { useState, useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { format } from "date-fns";
+import { toast } from "sonner";
+import { CheckCircle, Lock, Clock, Hourglass, Loader2, Phone, ShieldCheck, ShieldX } from "lucide-react";
 import { Calendar } from "@/components/ui/calendar";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox";
-import { CheckCircle, Lock, Clock, LogIn, Hourglass, ShieldCheck, ShieldX } from "lucide-react";
-import BookingModal from "./BookingModal";
 import { BlurFade } from "@/components/magicui/blur-fade";
 import { BorderBeam } from "@/components/magicui/border-beam";
-import { format } from "date-fns";
-import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
+import BookingModal from "./BookingModal";
 import { useClientAuth } from "@/contexts/ClientAuthContext";
-import { checkPasswordStrength } from "@/lib/passwordStrength";
+import { api, ApiError, isApiConfigured, type SystemStatus } from "@/lib/api";
 
-type DateStatus = "available" | "pending" | "approved" | "rejected" | "booked";
+type DateStatus = "available" | "pending" | "booked";
 
 const BookingCalendar = () => {
-  const { clientUser, accessStatus, requestAccess, signIn, signInWithEmail, signUpWithEmail, resetPassword, setPersistence, loading } = useClientAuth();
+  const { customer, loading, openSignIn, requestAccess } = useClientAuth();
   const [date, setDate] = useState<Date | undefined>(new Date());
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [showBookingModal, setShowBookingModal] = useState(false);
-  const [showSignInPrompt, setShowSignInPrompt] = useState(false);
   const [showAccessPrompt, setShowAccessPrompt] = useState(false);
   const [wantsToBook, setWantsToBook] = useState(false);
-  const [requesting, setRequesting] = useState(false);
-  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [bookedDates, setBookedDates] = useState<Record<string, DateStatus>>({});
-  const [authMode, setAuthMode] = useState<"signin" | "signup" | "forgot">("signin");
-  const [authEmail, setAuthEmail] = useState("");
-  const [authPassword, setAuthPassword] = useState("");
-  const [authName, setAuthName] = useState("");
-  const [authBusy, setAuthBusy] = useState(false);
-  const [staySignedIn, setStaySignedIn] = useState(true);
+  const [status, setStatus] = useState<SystemStatus | null>(null);
+  const [statusLoaded, setStatusLoaded] = useState(!isApiConfigured);
+  const [accessForm, setAccessForm] = useState({ name: "", mobile: "" });
+  const [requesting, setRequesting] = useState(false);
 
-  const pwCheck = checkPasswordStrength(authPassword);
-  const barColors = ["bg-destructive", "bg-destructive", "bg-warning", "bg-warning", "bg-success"];
-
-  useEffect(() => {
-    // Pull latest Google Calendar events into our DB, then load availability.
-    supabase.functions
-      .invoke("calendar-sync", { body: { action: "pull" } })
-      .catch((err) => console.warn("Google Calendar pull skipped:", err))
-      .finally(fetchBookings);
-
-    // Live updates whenever bookings change in the DB.
-    const channel = supabase
-      .channel("bookings-availability")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "bookings" },
-        () => fetchBookings(),
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
+  const fetchAvailability = useCallback(async () => {
+    try {
+      const res = await api<{ dates: Record<string, DateStatus> }>("availability");
+      setBookedDates(res.dates);
+    } catch (err) {
+      console.error("Error fetching availability:", err);
+    }
   }, []);
 
-  const fetchBookings = async () => {
-    const { data, error } = await supabase.rpc("get_booked_dates");
-    if (error) {
-      console.error("Error fetching availability:", error);
+  useEffect(() => {
+    if (!isApiConfigured) return;
+    api<SystemStatus>("status")
+      .then(setStatus)
+      .catch((err) => console.error("Booking system unreachable:", err))
+      .finally(() => setStatusLoaded(true));
+    fetchAvailability();
+    const id = window.setInterval(fetchAvailability, 60_000);
+    return () => window.clearInterval(id);
+  }, [fetchAvailability]);
+
+  const bookingOpen = !!status?.configured && status.bookingEnabled;
+
+  const getDateStatus = (d: Date): DateStatus => bookedDates[format(d, "yyyy-MM-dd")] ?? "available";
+
+  const handleDateClick = (d: Date | undefined) => {
+    if (!d) return;
+    if (getDateStatus(d) === "booked") {
+      toast.error("This date is already booked at Dhanlakshmi Park Inn. Please choose another date 💛", { duration: 4000 });
       return;
     }
-    // A date can have several rows; the most significant status wins.
-    const rank: Partial<Record<string, number>> = { pending: 1, approved: 2, booked: 2 };
-    const bookingsMap: Record<string, DateStatus> = {};
-    (data ?? []).forEach((row: { booking_date: string; status: string }) => {
-      const current = bookingsMap[row.booking_date];
-      if ((rank[row.status] ?? 0) > (current ? rank[current] ?? 0 : 0)) {
-        bookingsMap[row.booking_date] = row.status as DateStatus;
-      }
-    });
-    setBookedDates(bookingsMap);
-  };
-
-  const getDateStatus = (date: Date): DateStatus => {
-    const dateString = format(date, "yyyy-MM-dd");
-    return bookedDates[dateString] || "available";
-  };
-
-  const handleDateClick = (date: Date | undefined) => {
-    if (!date) return;
-
-    const status = getDateStatus(date);
-
-    if (status === "booked" || status === "approved") {
-      toast.error(
-        "This date is already booked at Dhanlakshmi Park Inn. Please choose another date 💛",
-        { duration: 4000 }
-      );
+    if (!bookingOpen) {
+      toast("Online booking opens soon. Please call us on 098414 14699 to book this date.", { duration: 5000 });
       return;
     }
-
-    setSelectedDate(date);
-
-    if (!clientUser) {
-      setShowSignInPrompt(true);
+    setSelectedDate(d);
+    if (!customer) {
+      openSignIn(() => setWantsToBook(true));
       return;
     }
-
     setWantsToBook(true);
   };
 
-  // Approval status loads asynchronously after sign-in, so decide once it is known.
+  // Decide once the profile (and its approval status) is known after sign-in.
   useEffect(() => {
-    if (!wantsToBook || !clientUser || accessStatus === null) return;
+    if (!wantsToBook || !customer) return;
     setWantsToBook(false);
-    if (accessStatus === "approved") setShowBookingModal(true);
-    else setShowAccessPrompt(true);
-  }, [wantsToBook, clientUser, accessStatus]);
+    if (customer.access === "approved") setShowBookingModal(true);
+    else {
+      setAccessForm({ name: customer.name, mobile: customer.mobile });
+      setShowAccessPrompt(true);
+    }
+  }, [wantsToBook, customer]);
 
-  const handleRequestAccess = async () => {
+  const handleRequestAccess = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const name = accessForm.name.trim();
+    const mobile = accessForm.mobile.replace(/[\s-]/g, "");
+    if (!name) return toast.error("Please enter your name.");
+    if (!/^\+?\d{10,13}$/.test(mobile)) return toast.error("Please enter a valid mobile number.");
     setRequesting(true);
-    const res = await requestAccess();
-    setRequesting(false);
-    if (res.error) toast.error(res.error);
-    else toast.success("Request sent. We'll let you know once an admin approves it.");
+    try {
+      await requestAccess(name, mobile);
+      toast.success("Request sent. We'll email you once it's approved.");
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Could not send your request. Please try again.");
+    } finally {
+      setRequesting(false);
+    }
   };
 
   const modifiers = {
-    booked:    (date: Date) => getDateStatus(date) === "booked",
-    approved:  (date: Date) => getDateStatus(date) === "approved",
-    pending:   (date: Date) => getDateStatus(date) === "pending",
-    available: (date: Date) => getDateStatus(date) === "available",
+    booked: (d: Date) => getDateStatus(d) === "booked",
+    pending: (d: Date) => getDateStatus(d) === "pending",
+    available: (d: Date) => getDateStatus(d) === "available",
   };
 
   const modifiersStyles = {
-    booked:    { backgroundColor: "hsl(var(--destructive))", color: "white", fontWeight: "bold" },
-    approved:  { backgroundColor: "hsl(var(--destructive))", color: "white", fontWeight: "bold" },
-    pending:   { backgroundColor: "hsl(var(--warning))", color: "hsl(var(--warning-foreground))", fontWeight: "bold" },
+    booked: { backgroundColor: "hsl(var(--destructive))", color: "white", fontWeight: "bold" },
+    pending: { backgroundColor: "hsl(var(--warning))", color: "hsl(var(--warning-foreground))", fontWeight: "bold" },
     available: { backgroundColor: "hsl(var(--success) / 0.1)", color: "hsl(var(--success))", fontWeight: "500" },
   };
+
+  const access = customer?.access;
 
   return (
     <section id="calendar" className="relative py-24 md:py-32 bg-muted/40">
@@ -145,18 +122,22 @@ const BookingCalendar = () => {
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
             Select an available date to book your event at Dhanlakshmi Park Inn
           </p>
-          {!clientUser && !loading && (
-            <p className="mt-3 text-sm text-muted-foreground">
-              Sign in with Google to request a booking
+          {statusLoaded && !bookingOpen && (
+            <p className="mt-5 inline-flex flex-wrap items-center justify-center gap-2 rounded-full border border-primary/25 bg-accent/50 px-5 py-2 text-sm">
+              <Phone className="h-3.5 w-3.5 text-primary" />
+              Online booking opens soon — call
+              <a href="tel:+919841414699" className="font-semibold text-primary hover:underline">098414 14699</a>
+              to book today.
             </p>
           )}
-          {clientUser && accessStatus && accessStatus !== "approved" && (
+          {bookingOpen && !customer && !loading && (
+            <p className="mt-3 text-sm text-muted-foreground">Sign in with your email to request a booking</p>
+          )}
+          {bookingOpen && customer && access !== "approved" && (
             <p className="mt-4 inline-flex items-center gap-2 rounded-full border border-border bg-card px-4 py-1.5 text-sm text-muted-foreground">
-              {accessStatus === "pending"
-                ? <Hourglass className="h-3.5 w-3.5 text-primary" />
-                : <ShieldCheck className="h-3.5 w-3.5 text-primary" />}
-              {accessStatus === "pending" ? "Your booking access is awaiting admin approval"
-                : accessStatus === "rejected" ? "Online booking isn't available for your account"
+              {access === "pending" ? <Hourglass className="h-3.5 w-3.5 text-primary" /> : <ShieldCheck className="h-3.5 w-3.5 text-primary" />}
+              {access === "pending" ? "Your booking access is awaiting admin approval"
+                : access === "rejected" || access === "blocked" ? "Online booking isn't available for your account"
                 : "Pick a date to request booking access"}
             </p>
           )}
@@ -181,199 +162,22 @@ const BookingCalendar = () => {
               <Calendar
                 mode="single"
                 selected={date}
-                onSelect={handleDateClick}
+                onSelect={(d) => {
+                  setDate(d);
+                  handleDateClick(d);
+                }}
                 modifiers={modifiers}
                 modifiersStyles={modifiersStyles}
                 className="rounded-2xl border bg-background p-4 shadow-soft"
-                disabled={(date) => date < new Date()}
+                disabled={(d) => format(d, "yyyy-MM-dd") < format(new Date(), "yyyy-MM-dd")}
               />
             </div>
           </Card>
         </BlurFade>
       </div>
 
-      {/* Sign-in prompt overlay */}
-      {showSignInPrompt && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
-          <Card className="w-full max-w-sm rounded-2xl p-6 space-y-4 shadow-elegant animate-in fade-in zoom-in-95 duration-300">
-            <div className="text-center space-y-2">
-              <LogIn className="mx-auto h-10 w-10 text-primary" />
-              <h3 className="text-lg font-semibold">
-                {authMode === "signin" && "Sign in to Book"}
-                {authMode === "signup" && "Create an account"}
-                {authMode === "forgot" && "Reset your password"}
-              </h3>
-              <p className="text-sm text-muted-foreground">
-                {authMode === "forgot"
-                  ? "We'll email you a link to set a new password."
-                  : "Admin approval is required before your booking is confirmed."}
-              </p>
-            </div>
-
-            {authMode !== "forgot" && (
-              <>
-                <Button variant="outline" className="w-full gap-3 h-11" onClick={signIn}>
-                  <svg viewBox="0 0 24 24" width="18" height="18" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
-                    <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
-                    <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
-                    <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
-                  </svg>
-                  Continue with Google
-                </Button>
-
-                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <div className="h-px flex-1 bg-border" />or<div className="h-px flex-1 bg-border" />
-                </div>
-              </>
-            )}
-
-            <form
-              className="space-y-3"
-              onSubmit={async (e) => {
-                e.preventDefault();
-                if (authBusy) return;
-
-                if (authMode === "forgot") {
-                  if (!authEmail) { toast.error("Enter your email"); return; }
-                  setAuthBusy(true);
-                  const res = await resetPassword(authEmail.trim());
-                  setAuthBusy(false);
-                  if (res.error) { toast.error(res.error); return; }
-                  toast.success("Check your email for a reset link");
-                  setAuthMode("signin");
-                  return;
-                }
-
-                if (!authEmail) { toast.error("Enter your email"); return; }
-
-                if (authMode === "signup" && !pwCheck.ok) {
-                  toast.error("Password too weak: " + pwCheck.errors[0]);
-                  return;
-                }
-                if (authMode === "signin" && authPassword.length < 6) {
-                  toast.error("Enter your password");
-                  return;
-                }
-
-                setAuthBusy(true);
-                setPersistence(staySignedIn);
-                const res = authMode === "signin"
-                  ? await signInWithEmail(authEmail.trim(), authPassword)
-                  : await signUpWithEmail(authEmail.trim(), authPassword, authName.trim() || undefined);
-                setAuthBusy(false);
-                if (res.error) {
-                  toast.error(res.error);
-                  return;
-                }
-                toast.success(authMode === "signin" ? "Signed in" : "Account created");
-                setShowSignInPrompt(false);
-                setAuthPassword("");
-                setWantsToBook(true);
-              }}
-            >
-              {authMode === "signup" && (
-                <div className="space-y-1.5">
-                  <Label htmlFor="auth-name">Name</Label>
-                  <Input id="auth-name" value={authName} onChange={(e) => setAuthName(e.target.value)} placeholder="Your name" />
-                </div>
-              )}
-              <div className="space-y-1.5">
-                <Label htmlFor="auth-email">Email</Label>
-                <Input id="auth-email" type="email" required value={authEmail} onChange={(e) => setAuthEmail(e.target.value)} placeholder="you@example.com" />
-              </div>
-
-              {authMode !== "forgot" && (
-                <div className="space-y-1.5">
-                  <div className="flex items-center justify-between">
-                    <Label htmlFor="auth-pass">Password</Label>
-                    {authMode === "signin" && (
-                      <button
-                        type="button"
-                        className="text-xs text-primary hover:underline"
-                        onClick={() => setAuthMode("forgot")}
-                      >
-                        Forgot password?
-                      </button>
-                    )}
-                  </div>
-                  <Input
-                    id="auth-pass"
-                    type="password"
-                    required
-                    minLength={authMode === "signup" ? 8 : 6}
-                    value={authPassword}
-                    onChange={(e) => setAuthPassword(e.target.value)}
-                    placeholder={authMode === "signup" ? "8+ chars, mixed case, number, symbol" : "Your password"}
-                  />
-
-                  {authMode === "signup" && authPassword.length > 0 && (
-                    <div className="space-y-1.5 pt-1">
-                      <div className="flex gap-1">
-                        {[0,1,2,3].map(i => (
-                          <div
-                            key={i}
-                            className={`h-1 flex-1 rounded-full ${i < pwCheck.score ? barColors[pwCheck.score] : "bg-muted"}`}
-                          />
-                        ))}
-                      </div>
-                      <div className="text-[11px] text-muted-foreground">
-                        Strength: <span className="font-medium text-foreground">{pwCheck.label}</span>
-                      </div>
-                      {pwCheck.errors.length > 0 && (
-                        <ul className="text-[11px] text-muted-foreground list-disc pl-4 space-y-0.5">
-                          {pwCheck.errors.slice(0, 3).map(err => <li key={err}>{err}</li>)}
-                        </ul>
-                      )}
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {authMode !== "forgot" && (
-                <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer pt-1">
-                  <Checkbox
-                    checked={staySignedIn}
-                    onCheckedChange={(v) => setStaySignedIn(v === true)}
-                  />
-                  Keep me signed in on this device
-                </label>
-              )}
-
-              <Button type="submit" className="w-full h-11" disabled={authBusy}>
-                {authBusy ? "Please wait…"
-                  : authMode === "signin" ? "Sign in"
-                  : authMode === "signup" ? "Create account"
-                  : "Send reset link"}
-              </Button>
-            </form>
-
-            <div className="text-center text-xs text-muted-foreground">
-              {authMode === "signin" && (
-                <>New here?{" "}
-                  <button className="text-primary underline" onClick={() => setAuthMode("signup")}>Create an account</button>
-                </>
-              )}
-              {authMode === "signup" && (
-                <>Already have an account?{" "}
-                  <button className="text-primary underline" onClick={() => setAuthMode("signin")}>Sign in</button>
-                </>
-              )}
-              {authMode === "forgot" && (
-                <button className="text-primary underline" onClick={() => setAuthMode("signin")}>Back to sign in</button>
-              )}
-            </div>
-
-            <Button variant="ghost" className="w-full" onClick={() => setShowSignInPrompt(false)}>
-              Cancel
-            </Button>
-          </Card>
-        </div>
-      )}
-
-
       {/* Approval gate */}
-      {showAccessPrompt && clientUser && (
+      {showAccessPrompt && customer && (
         <div
           role="dialog"
           aria-modal="true"
@@ -387,38 +191,61 @@ const BookingCalendar = () => {
           >
             <BorderBeam size={80} duration={8} colorFrom="hsl(var(--gold))" colorTo="hsl(var(--primary))" />
             <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-accent">
-              {accessStatus === "pending" ? <Hourglass className="h-6 w-6 text-primary" />
-                : accessStatus === "rejected" ? <ShieldX className="h-6 w-6 text-destructive" />
+              {access === "pending" ? <Hourglass className="h-6 w-6 text-primary" />
+                : access === "rejected" || access === "blocked" ? <ShieldX className="h-6 w-6 text-destructive" />
                 : <ShieldCheck className="h-6 w-6 text-primary" />}
             </div>
             <h3 id="access-title" className="text-xl font-semibold">
-              {accessStatus === "pending" ? "Approval pending"
-                : accessStatus === "rejected" ? "Request not approved"
+              {access === "pending" ? "Approval pending"
+                : access === "rejected" || access === "blocked" ? "Request not approved"
                 : "Request booking access"}
             </h3>
             <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-              {accessStatus === "pending"
-                ? "Thanks! An admin is reviewing your account. You can book as soon as it's approved."
-                : accessStatus === "rejected"
+              {access === "pending"
+                ? "Thanks! An admin is reviewing your account. We'll email you as soon as you can book."
+                : access === "rejected" || access === "blocked"
                 ? "Your account wasn't approved for online booking. Please call us and we'll help you directly."
                 : "To keep our calendar genuine, an admin approves each customer once before their first booking."}
             </p>
-            <p className="mt-3 truncate rounded-lg bg-muted px-3 py-1.5 text-xs text-muted-foreground">{clientUser.email}</p>
-            <div className="mt-6 flex flex-col gap-2">
-              {accessStatus === "none" && (
-                <Button className="h-11 rounded-full" disabled={requesting} onClick={handleRequestAccess}>
+            <p className="mt-3 truncate rounded-lg bg-muted px-3 py-1.5 text-xs text-muted-foreground">{customer.email}</p>
+
+            {access === "none" ? (
+              <form onSubmit={handleRequestAccess} className="mt-5 space-y-3 text-left">
+                <div className="space-y-1.5">
+                  <Label htmlFor="access-name">Your name</Label>
+                  <Input
+                    id="access-name"
+                    autoComplete="name"
+                    maxLength={100}
+                    value={accessForm.name}
+                    onChange={(e) => setAccessForm({ ...accessForm, name: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="access-mobile">Mobile number</Label>
+                  <Input
+                    id="access-mobile"
+                    type="tel"
+                    autoComplete="tel"
+                    maxLength={16}
+                    placeholder="+91 XXXXX XXXXX"
+                    value={accessForm.mobile}
+                    onChange={(e) => setAccessForm({ ...accessForm, mobile: e.target.value })}
+                  />
+                </div>
+                <Button type="submit" className="h-11 w-full gap-2 rounded-full" disabled={requesting}>
+                  {requesting && <Loader2 className="h-4 w-4 animate-spin" />}
                   {requesting ? "Sending…" : "Request access"}
                 </Button>
-              )}
-              {accessStatus === "rejected" && (
-                <Button asChild className="h-11 rounded-full">
-                  <a href="tel:+919841414699">Call 098414 14699</a>
-                </Button>
-              )}
-              <Button variant="ghost" className="rounded-full" onClick={() => setShowAccessPrompt(false)}>
-                Close
+              </form>
+            ) : access === "rejected" || access === "blocked" ? (
+              <Button asChild className="mt-6 h-11 w-full rounded-full">
+                <a href="tel:+919841414699">Call 098414 14699</a>
               </Button>
-            </div>
+            ) : null}
+            <Button variant="ghost" className="mt-2 w-full rounded-full" onClick={() => setShowAccessPrompt(false)}>
+              Close
+            </Button>
           </Card>
         </div>
       )}
@@ -427,8 +254,7 @@ const BookingCalendar = () => {
         open={showBookingModal}
         onOpenChange={setShowBookingModal}
         selectedDate={selectedDate}
-        onBookingSuccess={fetchBookings}
-        clientUser={clientUser}
+        onBookingSuccess={fetchAvailability}
       />
     </section>
   );
