@@ -47,11 +47,41 @@ function addAdmin(email = 'staff@example.com') {
 const noServerErrors = () => assert.deepEqual(g.logs.filter((l) => l[0] === 'error'), []);
 
 describe('setup / status', () => {
-  test('status before setup is not configured', () => {
+  test('the first request sets everything up automatically', () => {
     const fresh = createGasContext({ now: T0, ownerEmail: OWNER });
     const r = fresh.get('status');
     assert.equal(r.ok, true);
+    assert.equal(r.data.configured, true);
+    assert.equal(r.data.setupError, undefined);
+    assert.deepEqual(fresh.sheets.names().sort(), ['Activity', 'Admins', 'Bookings', 'Customers', 'Money', 'Settings']);
+    assert.equal(fresh.calendar.all().length, 1);
+    // Later requests don't repeat it.
+    fresh.get('status');
+    assert.equal(fresh.calendar.all().length, 1);
+    assert.equal(fresh.triggers.length, 1);
+  });
+
+  test('a script created at script.google.com (not from a Sheet) creates its own Sheet', () => {
+    const fresh = createGasContext({ now: T0, ownerEmail: OWNER, standalone: true });
+    const r = fresh.get('status');
+    assert.equal(r.data.configured, true);
+    assert.deepEqual(fresh.createdSpreadsheets, ['Park Inn Bookings']);
+    assert.equal(fresh.properties.get('sheetId'), 'SIM_SPREADSHEET_ID');
+    assert.equal(fresh.sheets.dump('Admins')[1][0], OWNER);
+    // The admin can sign in and load data from that Sheet.
+    fresh.call('sendCode', { email: OWNER, purpose: 'admin' });
+    const code = [...fresh.outbox].reverse().find((m) => m.to === OWNER).subject.match(/\d{6}/)[0];
+    const token = fresh.call('verifyCode', { email: OWNER, code, purpose: 'admin' }).data.token;
+    const data = fresh.call('adminData', { token });
+    assert.equal(data.ok, true);
+    assert.match(data.data.links.sheet, /SIM_SPREADSHEET_ID/);
+  });
+
+  test('when automatic setup fails, status says why and nothing else is touched', () => {
+    const fresh = createGasContext({ now: T0, ownerEmail: OWNER, noEmail: true });
+    const r = fresh.get('status');
     assert.equal(r.data.configured, false);
+    assert.match(r.data.setupError, /Google account email/);
     assert.equal(fresh.call('adminData', {}).ok, false);
   });
 

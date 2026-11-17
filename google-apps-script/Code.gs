@@ -133,11 +133,35 @@ function handle_(req) {
   try {
     const route = ROUTES[req && req.action];
     if (!route) throw fail_('Unknown action', 'INVALID');
+    ensureSetup_();
     return json_({ ok: true, data: route(req) });
   } catch (err) {
     if (err && err.userFacing) return json_({ ok: false, error: err.message, code: err.code });
     console.error(err && err.stack ? err.stack : err);
     return json_({ ok: false, error: 'Something went wrong. Please try again.', code: 'SERVER' });
+  }
+}
+
+/**
+ * Runs setup on the first request, so the admin can't miss that step: the web
+ * app executes as the owner, who granted every permission when deploying.
+ * A failure is remembered briefly and reported by `status`.
+ */
+function ensureSetup_() {
+  const props = PropertiesService.getScriptProperties();
+  if (props.getProperty('setupVersion') === String(VERSION)) return;
+  const cache = CacheService.getScriptCache();
+  if (cache.get('setup-error')) return;
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(30000)) return;
+  try {
+    if (props.getProperty('setupVersion') === String(VERSION)) return;
+    setup();
+  } catch (err) {
+    cache.put('setup-error', String((err && err.message) || err).slice(0, 300), 120);
+    console.error('automatic setup failed: ' + (err && err.stack ? err.stack : err));
+  } finally {
+    lock.releaseLock();
   }
 }
 
@@ -158,11 +182,13 @@ function fail_(message, code) {
 
 function apiStatus_() {
   const s = settings_();
+  const configured = !!s.calendarId && !!s.ownerEmail;
   return {
     version: VERSION,
-    configured: !!s.calendarId && !!s.ownerEmail,
+    configured,
     bookingEnabled: isBookingOpen_(s),
     venueName: s.venueName || 'Dhanlakshmi Park Inn',
+    setupError: configured ? undefined : CacheService.getScriptCache().get('setup-error') || undefined,
   };
 }
 
@@ -354,7 +380,7 @@ function apiMyBookingCancel_(req) {
 function apiAdminData_(req) {
   const admin = requireAdmin_(req);
   const s = settings_();
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ss = ss_();
   return {
     me: admin,
     settings: {
@@ -950,8 +976,22 @@ function notifyCustomer_(b, subject, html) {
 /* Sheet storage                                                       */
 /* ------------------------------------------------------------------ */
 
+/** The bookings spreadsheet: the Sheet this script belongs to, or the one setup created. */
+function ss_() {
+  const active = SpreadsheetApp.getActiveSpreadsheet();
+  if (active) return active;
+  const id = PropertiesService.getScriptProperties().getProperty('sheetId');
+  if (!id) return null;
+  try {
+    return SpreadsheetApp.openById(id);
+  } catch (err) {
+    return null; // deleted or no longer accessible
+  }
+}
+
 function sheet_(name) {
-  const sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(name);
+  const ss = ss_();
+  const sh = ss && ss.getSheetByName(name);
   if (!sh) throw fail_('The booking system is not set up yet.', 'NOT_CONFIGURED');
   return sh;
 }
@@ -1018,7 +1058,8 @@ function fromCell_(field, v) {
 
 function settings_() {
   const out = {};
-  const sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Settings');
+  const ss = ss_();
+  const sh = ss && ss.getSheetByName('Settings');
   if (!sh || sh.getLastRow() < 2) return out;
   const labels = {};
   Object.keys(SETTING_KEYS).forEach((k) => { labels[SETTING_KEYS[k]] = k; });
@@ -1161,12 +1202,17 @@ function matchOption_(value, labels) {
 /* One-time setup + sheet menu                                         */
 /* ------------------------------------------------------------------ */
 
-/** Run once from the Apps Script editor. Safe to run again (repairs missing pieces). */
+/** Run once from the Apps Script editor, or automatically on the first web request. Safe to run again. */
 function setup() {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  if (!ss) throw new Error('Open this script from your Google Sheet: Extensions → Apps Script.');
+  // Works both when the script was opened from a Sheet (Extensions → Apps Script)
+  // and when it was created on its own at script.google.com.
+  let ss = ss_();
+  if (!ss) {
+    ss = SpreadsheetApp.create('Park Inn Bookings');
+  }
+  PropertiesService.getScriptProperties().setProperty('sheetId', ss.getId());
   const owner = String(Session.getEffectiveUser().getEmail() || '').toLowerCase();
-  if (!owner) throw new Error('Could not read your Google account email. Please run setup again.');
+  if (!owner) throw new Error('Could not read your Google account email. Open the script editor and run setup once.');
   ss.setSpreadsheetTimeZone(TZ);
 
   Object.keys(TABLES).forEach((name) => {
@@ -1206,7 +1252,9 @@ function setup() {
 
   log_(owner, 'Setup completed', 'Version ' + VERSION);
   invalidateAvailability_();
-  return 'Setup complete. Next: Deploy → New deployment → Web app (Execute as: Me, Who has access: Anyone).';
+  PropertiesService.getScriptProperties().setProperty('setupVersion', String(VERSION));
+  CacheService.getScriptCache().remove('setup-error');
+  return 'Setup complete. Your bookings sheet: ' + ss.getUrl();
 }
 
 function onOpen() {

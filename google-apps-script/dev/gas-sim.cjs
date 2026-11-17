@@ -133,12 +133,19 @@ function createGasContext(opts = {}) {
       if (sheetsList.length <= 1) throw new Error('You can\'t delete all the visible sheets in a document.');
       sheetsList.splice(sheetsList.indexOf(s), 1);
     },
+    getId: () => 'SIM_SPREADSHEET_ID',
+    getName: () => spreadsheet.name,
+    name: 'Untitled spreadsheet',
     getUrl: () => 'https://docs.google.com/spreadsheets/d/SIM_SPREADSHEET_ID/edit',
     setSpreadsheetTimeZone(tz) { this.timeZone = tz; },
   };
   const menus = [];
+  const created = [];
   const SpreadsheetApp = {
-    getActiveSpreadsheet: () => spreadsheet,
+    // standalone: the script was created at script.google.com, not from inside a Sheet.
+    getActiveSpreadsheet: () => (opts.standalone ? null : spreadsheet),
+    create(name) { spreadsheet.name = name; created.push(name); return spreadsheet; },
+    openById(id) { if (id !== 'SIM_SPREADSHEET_ID') throw new Error('Spreadsheet not found'); return spreadsheet; },
     getUi: () => ({
       createMenu(title) {
         const m = { title, items: [] };
@@ -241,7 +248,7 @@ function createGasContext(opts = {}) {
   };
 
   /* ---------------- Session / Script / Content ---------------- */
-  const Session = { getEffectiveUser: () => ({ getEmail: () => ownerEmail }) };
+  const Session = { getEffectiveUser: () => ({ getEmail: () => (opts.noEmail ? '' : ownerEmail) }) };
   const triggers = [];
   const ScriptApp = {
     getProjectTriggers: () => triggers.slice(),
@@ -329,6 +336,8 @@ function createGasContext(opts = {}) {
     rawPost(contents) { return parse(context.doPost({ postData: { contents } })); },
     get(action) { return parse(context.doGet({ parameter: action === undefined ? {} : { action } })); },
     runSetup() { return context.setup(); },
+    createdSpreadsheets: created,
+    properties: props,
     spreadsheet,
   };
 }
