@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -19,10 +19,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Calendar } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
-import type { ClientUser } from "@/contexts/ClientAuthContext";
+import { Calendar, Loader2 } from "lucide-react";
 import { format } from "date-fns";
+import { useClientAuth } from "@/contexts/ClientAuthContext";
+import { api, ApiError } from "@/lib/api";
+import { EVENT_TYPES, TIME_SLOTS } from "@/lib/booking";
 import { checkRateLimit } from "@/lib/security";
 
 interface BookingModalProps {
@@ -30,45 +31,29 @@ interface BookingModalProps {
   onOpenChange: (open: boolean) => void;
   selectedDate: Date | null;
   onBookingSuccess: () => void;
-  clientUser: ClientUser | null;
 }
 
-const BookingModal = ({
-  open,
-  onOpenChange,
-  selectedDate,
-  onBookingSuccess,
-  clientUser,
-}: BookingModalProps) => {
-  const [formData, setFormData] = useState({
-    name: "",
-    mobile: "",
-    email: "",
-    eventType: "",
-    guests: "",
-    timeSlot: "",
-    notes: "",
-  });
+const EMPTY = { name: "", mobile: "", eventType: "", guests: "", timeSlot: "", notes: "" };
+
+const BookingModal = ({ open, onOpenChange, selectedDate, onBookingSuccess }: BookingModalProps) => {
+  const { customer, token } = useClientAuth();
+  const [formData, setFormData] = useState(EMPTY);
   const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    if (clientUser) {
-      setFormData(prev => ({
+    if (open && customer) {
+      setFormData((prev) => ({
         ...prev,
-        name: clientUser.name || prev.name,
-        email: clientUser.email || prev.email,
+        name: prev.name || customer.name,
+        mobile: prev.mobile || customer.mobile,
       }));
     }
-  }, [clientUser, open]);
+  }, [customer, open]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    if (!selectedDate) return;
-    if (!clientUser) {
-      toast.error("Please sign in to submit a booking.");
-      return;
-    }
+    if (!selectedDate || !customer || submitting) return;
     if (!acceptedTerms) {
       toast.error("Please accept the Terms & Privacy Policy to continue.");
       return;
@@ -98,58 +83,45 @@ const BookingModal = ({
       return;
     }
 
-    // Local calendar date; toISOString() would shift to the previous day in IST.
-    const bookingDate = format(selectedDate, "yyyy-MM-dd");
-
-    const { data: inserted, error } = await supabase
-      .from("bookings")
-      .insert({
-        booking_date: bookingDate,
-        status: "pending",
-        name,
-        mobile,
-        email: clientUser.email,
-        event_type: formData.eventType,
-        guest_count: guests,
-        time_slot: formData.timeSlot,
-        notes: formData.notes.trim(),
-      })
-      .select("id")
-      .maybeSingle();
-
-    if (error || !inserted) {
-      console.error("Error creating booking:", error);
-      toast.error(
-        error?.message?.includes("already booked")
-          ? "Sorry, this date was just booked. Please choose another date."
-          : error?.code === "42501"
-            ? "Your account needs admin approval before you can book."
-            : "Failed to create booking. Please try again."
+    setSubmitting(true);
+    try {
+      await api(
+        "bookingRequest",
+        {
+          // Local calendar date; toISOString() would shift to the previous day in IST.
+          date: format(selectedDate, "yyyy-MM-dd"),
+          slot: formData.timeSlot,
+          eventType: formData.eventType,
+          guests,
+          name,
+          mobile,
+          notes: formData.notes.trim(),
+        },
+        token,
       );
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Failed to send your request. Please try again.");
       return;
+    } finally {
+      setSubmitting(false);
     }
 
     toast.success(
-      `Booking request submitted for ${formatDate(selectedDate)}. Our team will review and contact you soon.`,
-      { duration: 5000 }
+      `Booking request sent for ${formatDate(selectedDate)}. We'll review it and email you soon.`,
+      { duration: 6000 },
     );
-
-    setFormData({ name: "", mobile: "", email: "", eventType: "", guests: "", timeSlot: "", notes: "" });
+    setFormData(EMPTY);
     setAcceptedTerms(false);
     onBookingSuccess();
     onOpenChange(false);
   };
 
-  const formatDate = (date: Date | null) => {
-    if (!date) return "";
-    return date.toLocaleDateString("en-US", {
-      weekday: "long", year: "numeric", month: "long", day: "numeric",
-    });
-  };
+  const formatDate = (date: Date | null) =>
+    date ? date.toLocaleDateString("en-IN", { weekday: "long", year: "numeric", month: "long", day: "numeric" }) : "";
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto rounded-3xl">
         <DialogHeader>
           <DialogTitle className="text-2xl">Let's Plan Your Event</DialogTitle>
           <DialogDescription className="flex items-center gap-2 text-base">
@@ -158,14 +130,11 @@ const BookingModal = ({
           </DialogDescription>
         </DialogHeader>
 
-        {clientUser && (
-          <div className="flex items-center gap-2 rounded-lg bg-muted px-3 py-2 text-xs text-muted-foreground">
-            {clientUser.avatarUrl && (
-              <img src={clientUser.avatarUrl} alt="" className="h-5 w-5 rounded-full" />
-            )}
-            Booking as <span className="font-medium text-foreground">{clientUser.email}</span>
-            <span className="ml-auto text-[10px] bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-300 px-1.5 py-0.5 rounded">
-              Pending admin approval
+        {customer && (
+          <div className="flex items-center gap-2 rounded-xl bg-muted px-3 py-2 text-xs text-muted-foreground">
+            Booking as <span className="font-medium text-foreground truncate">{customer.email}</span>
+            <span className="ml-auto shrink-0 rounded bg-amber-500/15 px-1.5 py-0.5 text-[10px] text-amber-800 dark:text-amber-300">
+              Admin confirms each request
             </span>
           </div>
         )}
@@ -200,20 +169,6 @@ const BookingModal = ({
             </div>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="email">Email Address *</Label>
-            <Input
-              id="email"
-              type="email"
-              required
-              value={formData.email}
-              readOnly={!!clientUser}
-              className={clientUser ? "bg-muted cursor-not-allowed" : ""}
-              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-              placeholder="your.email@example.com"
-            />
-          </div>
-
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="eventType">Type of Event *</Label>
@@ -222,16 +177,13 @@ const BookingModal = ({
                 value={formData.eventType}
                 onValueChange={(value) => setFormData({ ...formData, eventType: value })}
               >
-                <SelectTrigger>
+                <SelectTrigger id="eventType">
                   <SelectValue placeholder="Select event type" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="wedding">Wedding</SelectItem>
-                  <SelectItem value="reception">Reception</SelectItem>
-                  <SelectItem value="birthday">Birthday Party</SelectItem>
-                  <SelectItem value="corporate">Corporate Meet</SelectItem>
-                  <SelectItem value="anniversary">Anniversary</SelectItem>
-                  <SelectItem value="other">Other</SelectItem>
+                  {EVENT_TYPES.map(([value, label]) => (
+                    <SelectItem key={value} value={value}>{label}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -241,6 +193,7 @@ const BookingModal = ({
               <Input
                 id="guests"
                 type="number"
+                inputMode="numeric"
                 required
                 min={1}
                 max={5000}
@@ -258,15 +211,13 @@ const BookingModal = ({
               value={formData.timeSlot}
               onValueChange={(value) => setFormData({ ...formData, timeSlot: value })}
             >
-              <SelectTrigger>
+              <SelectTrigger id="timeSlot">
                 <SelectValue placeholder="Select time slot" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="morning">Morning (9 AM - 12 PM)</SelectItem>
-                <SelectItem value="afternoon">Afternoon (12 PM - 4 PM)</SelectItem>
-                <SelectItem value="evening">Evening (4 PM - 8 PM)</SelectItem>
-                <SelectItem value="night">Night (8 PM - 12 AM)</SelectItem>
-                <SelectItem value="fullday">Full Day</SelectItem>
+                {TIME_SLOTS.map(([value, label]) => (
+                  <SelectItem key={value} value={value}>{label}</SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
@@ -283,7 +234,7 @@ const BookingModal = ({
             />
           </div>
 
-          <div className="flex items-start gap-2 rounded-lg border bg-muted/40 p-3">
+          <div className="flex items-start gap-2 rounded-xl border bg-muted/40 p-3">
             <Checkbox
               id="terms"
               checked={acceptedTerms}
@@ -300,15 +251,12 @@ const BookingModal = ({
           </div>
 
           <div className="flex gap-4 pt-2">
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} className="flex-1">
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} className="flex-1 rounded-full">
               Cancel
             </Button>
-            <Button
-              type="submit"
-              disabled={!acceptedTerms}
-              className="flex-1 bg-primary hover:bg-primary/90"
-            >
-              Submit Booking Request
+            <Button type="submit" disabled={!acceptedTerms || submitting} className="flex-1 gap-2 rounded-full">
+              {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
+              {submitting ? "Sending…" : "Submit Booking Request"}
             </Button>
           </div>
         </form>
