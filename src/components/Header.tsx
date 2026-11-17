@@ -4,6 +4,7 @@ import { AnimatePresence, motion, useMotionValueEvent, useScroll } from "motion/
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 import { useClientAuth } from "@/contexts/ClientAuthContext";
+import { isApiConfigured } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
 const sections = [
@@ -17,7 +18,7 @@ const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [active, setActive] = useState("home");
-  const { clientUser, signIn, signOut, loading } = useClientAuth();
+  const { customer, openSignIn, signOut, loading } = useClientAuth();
   const { scrollY } = useScroll();
 
   useMotionValueEvent(scrollY, "change", (y) => setScrolled(y > 24));
@@ -46,24 +47,33 @@ const Header = () => {
   const onHero = !scrolled && !isMenuOpen;
 
   const AuthButton = ({ mobile = false }: { mobile?: boolean }) => {
-    if (loading) return null;
-    if (clientUser) {
+    if (loading || !isApiConfigured) return null;
+    if (customer) {
       return (
         <div className={`flex items-center gap-2 ${mobile ? "py-2" : ""}`}>
-          <Link to="/profile" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
-            {clientUser.avatarUrl && (
-              <img
-                src={clientUser.avatarUrl}
-                alt=""
-                referrerPolicy="no-referrer"
-                className="h-7 w-7 rounded-full border border-border"
-              />
+          <Link
+            to="/profile"
+            className={cn(
+              "flex items-center gap-2 transition-opacity hover:opacity-80",
+              onHero && !mobile ? "text-white" : "text-foreground"
             )}
-            <span className="text-xs text-muted-foreground hidden lg:block max-w-[120px] truncate">
-              {clientUser.name}
+          >
+            <span
+              aria-hidden="true"
+              className="flex h-7 w-7 items-center justify-center rounded-full bg-gold/25 font-serif text-sm"
+            >
+              {(customer.name || customer.email)[0].toUpperCase()}
+            </span>
+            <span className="text-xs hidden lg:block max-w-[140px] truncate">
+              {customer.name || customer.email}
             </span>
           </Link>
-          <Button variant="ghost" size="sm" onClick={signOut} className="gap-1.5 text-xs rounded-full">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={signOut}
+            className={cn("gap-1.5 text-xs rounded-full", onHero && !mobile && "text-white hover:bg-white/10 hover:text-white")}
+          >
             <LogOut size={13} /> Sign out
           </Button>
         </div>
@@ -72,13 +82,13 @@ const Header = () => {
     return (
       <Button
         size="sm"
-        onClick={signIn}
+        onClick={() => openSignIn()}
         className={cn(
           "gap-1.5 text-xs rounded-full",
           onHero && !mobile && "bg-white/10 text-white border border-white/20 hover:bg-white/20 backdrop-blur"
         )}
       >
-        <LogIn size={13} /> Sign in with Google
+        <LogIn size={13} /> Sign in
       </Button>
     );
   };

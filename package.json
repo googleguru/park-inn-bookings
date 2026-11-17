@@ -11,7 +11,8 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "predeploy": "npm run build",
-    "deploy": "npx gh-pages -d dist"
+    "deploy": "npx gh-pages -d dist",
+    "test:backend": "node --test google-apps-script/dev/*.test.cjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
