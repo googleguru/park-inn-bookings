@@ -1,175 +1,93 @@
-import { createContext, useCallback, useContext, useEffect, useState } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
+import { api, ApiError, isApiConfigured, type AccessStatus, type CustomerProfile } from '@/lib/api';
+import SignInDialog from '@/components/SignInDialog';
 
-export interface ClientUser {
-  id: string;
-  email: string;
-  name: string;
-  avatarUrl: string;
-}
-
-export type AccessStatus = 'none' | 'pending' | 'approved' | 'rejected';
+export type { AccessStatus };
 
 interface ClientAuthContextValue {
-  clientUser: ClientUser | null;
+  customer: CustomerProfile | null;
+  /** True until the stored session has been checked with the server. */
   loading: boolean;
-  /** Admin approval state for booking; null while unknown or signed out. */
-  accessStatus: AccessStatus | null;
-  requestAccess: (name?: string) => Promise<{ error?: string }>;
-  refreshAccess: () => Promise<void>;
-  signIn: () => Promise<void>;
-  signInWithEmail: (email: string, password: string) => Promise<{ error?: string }>;
-  signUpWithEmail: (email: string, password: string, name?: string) => Promise<{ error?: string }>;
-  resetPassword: (email: string) => Promise<{ error?: string }>;
-  setPersistence: (stay: boolean) => void;
-  signOut: () => Promise<void>;
+  token: string | null;
+  /** Opens the email-code sign-in dialog; `onSignedIn` runs after a successful sign-in. */
+  openSignIn: (onSignedIn?: () => void) => void;
+  sendCode: (email: string) => Promise<void>;
+  verifyCode: (email: string, code: string) => Promise<void>;
+  requestAccess: (name: string, mobile: string) => Promise<void>;
+  refresh: () => Promise<void>;
+  signOut: () => void;
 }
 
+const STORAGE_KEY = 'parkinn.customer';
 const ClientAuthContext = createContext<ClientAuthContextValue | null>(null);
 
 export function ClientAuthProvider({ children }: { children: React.ReactNode }) {
-  const [clientUser, setClientUser] = useState<ClientUser | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [accessStatus, setAccessStatus] = useState<AccessStatus | null>(null);
+  const [token, setToken] = useState<string | null>(() => localStorage.getItem(STORAGE_KEY));
+  const [customer, setCustomer] = useState<CustomerProfile | null>(null);
+  const [loading, setLoading] = useState(!!token && isApiConfigured);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const afterSignIn = useRef<(() => void) | undefined>();
 
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user) {
-        const u = session.user;
-        setClientUser({
-          id: u.id,
-          email: u.email!,
-          name: u.user_metadata?.full_name || u.user_metadata?.name || u.email!,
-          avatarUrl: u.user_metadata?.avatar_url || u.user_metadata?.picture || '',
-        });
-      }
-      setLoading(false);
-    });
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_, session) => {
-      if (session?.user) {
-        const u = session.user;
-        setClientUser({
-          id: u.id,
-          email: u.email!,
-          name: u.user_metadata?.full_name || u.user_metadata?.name || u.email!,
-          avatarUrl: u.user_metadata?.avatar_url || u.user_metadata?.picture || '',
-        });
-      } else {
-        setClientUser(null);
-      }
-    });
-
-    return () => subscription.unsubscribe();
+  const signOut = useCallback(() => {
+    localStorage.removeItem(STORAGE_KEY);
+    setToken(null);
+    setCustomer(null);
   }, []);
 
-  const refreshAccess = useCallback(async () => {
-    const { data: { session } } = await supabase.auth.getSession();
-    const email = session?.user?.email?.toLowerCase();
-    if (!email) {
-      setAccessStatus(null);
-      return;
-    }
-    const { data, error } = await supabase
-      .from('customer_access')
-      .select('status')
-      .eq('email', email)
-      .maybeSingle();
-    if (error) {
-      console.error('Could not load access status:', error);
-      setAccessStatus(null);
-      return;
-    }
-    setAccessStatus((data?.status as AccessStatus | undefined) ?? 'none');
-  }, []);
-
-  const userId = clientUser?.id;
-  useEffect(() => {
-    if (userId) refreshAccess();
-    else setAccessStatus(null);
-  }, [userId, refreshAccess]);
-
-  const requestAccess = async (name?: string) => {
-    if (!clientUser) return { error: 'Please sign in first.' };
-    const { error } = await supabase.from('customer_access').insert({
-      email: clientUser.email.toLowerCase(),
-      user_id: clientUser.id,
-      name: (name ?? clientUser.name).trim().slice(0, 100) || null,
-    });
-    // 23505: a request already exists, so just reload its status.
-    if (error && error.code !== '23505') return { error: 'Could not send your request. Please try again.' };
-    await refreshAccess();
-    return {};
-  };
-
-  const signIn = async () => {
-    const base = `${window.location.origin}${import.meta.env.BASE_URL}`.replace(/\/$/, '');
-    await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        redirectTo: base + '/',
-        queryParams: { prompt: 'select_account' },
-      },
-    });
-  };
-
-  const signInWithEmail = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    return error ? { error: error.message } : {};
-  };
-
-  const signUpWithEmail = async (email: string, password: string, name?: string) => {
-    const base = `${window.location.origin}${import.meta.env.BASE_URL}`.replace(/\/$/, '');
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        emailRedirectTo: base + '/',
-        data: name ? { full_name: name } : undefined,
-      },
-    });
-    return error ? { error: error.message } : {};
-  };
-
-  const resetPassword = async (email: string) => {
-    const base = `${window.location.origin}${import.meta.env.BASE_URL}`.replace(/\/$/, '');
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${base}/#/reset-password`,
-    });
-    return error ? { error: error.message } : {};
-  };
-
-  // When stay=false, sign out automatically when the tab/window is closed.
-  const setPersistence = (stay: boolean) => {
+  const refresh = useCallback(async () => {
+    if (!token) return;
     try {
-      if (stay) {
-        sessionStorage.removeItem('park-inn-ephemeral');
-      } else {
-        sessionStorage.setItem('park-inn-ephemeral', '1');
-      }
-    } catch { /* ignore */ }
-  };
+      setCustomer(await api<CustomerProfile>('me', {}, token));
+    } catch (err) {
+      if (err instanceof ApiError && err.code === 'AUTH') signOut();
+    }
+  }, [token, signOut]);
 
   useEffect(() => {
-    const onUnload = () => {
-      try {
-        if (sessionStorage.getItem('park-inn-ephemeral') === '1') {
-          supabase.auth.signOut();
-        }
-      } catch { /* ignore */ }
-    };
-    window.addEventListener('beforeunload', onUnload);
-    return () => window.removeEventListener('beforeunload', onUnload);
-  }, []);
+    if (!token || !isApiConfigured) return;
+    refresh().finally(() => setLoading(false));
+  }, [token, refresh]);
 
-  const signOut = async () => {
-    await supabase.auth.signOut();
-    setClientUser(null);
+  const sendCode = async (email: string) => {
+    await api('sendCode', { email, purpose: 'customer' });
+  };
+
+  const verifyCode = async (email: string, code: string) => {
+    const res = await api<{ token: string; profile: CustomerProfile }>('verifyCode', { email, code, purpose: 'customer' });
+    localStorage.setItem(STORAGE_KEY, res.token);
+    setToken(res.token);
+    setCustomer(res.profile);
+    setDialogOpen(false);
+    const next = afterSignIn.current;
+    afterSignIn.current = undefined;
+    next?.();
+  };
+
+  const requestAccess = async (name: string, mobile: string) => {
+    setCustomer(await api<CustomerProfile>('requestAccess', { name, mobile }, token));
+  };
+
+  const openSignIn = (onSignedIn?: () => void) => {
+    afterSignIn.current = onSignedIn;
+    setDialogOpen(true);
   };
 
   return (
-    <ClientAuthContext.Provider value={{ clientUser, loading, accessStatus, requestAccess, refreshAccess, signIn, signInWithEmail, signUpWithEmail, resetPassword, setPersistence, signOut }}>
+    <ClientAuthContext.Provider value={{
+      customer, loading, token, openSignIn, sendCode, verifyCode, requestAccess, refresh, signOut,
+    }}>
       {children}
+      <SignInDialog
+        open={dialogOpen}
+        onOpenChange={(open) => {
+          setDialogOpen(open);
+          if (!open) afterSignIn.current = undefined;
+        }}
+        title="Sign in to book"
+        description="We'll email you a 6-digit code. No password needed."
+        onSendCode={sendCode}
+        onVerify={verifyCode}
+      />
     </ClientAuthContext.Provider>
   );
 }
