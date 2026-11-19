@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
+import { consumeGoogleReturn } from '@/lib/googleAdmin';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, ApiError, SESSION_ENDED_CODES, type AdminData, type AdminRole } from '@/lib/api';
 
@@ -70,6 +71,18 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
     setAdminUser(res.admin);
     setAuthError(null);
   };
+
+  useEffect(() => {
+    const googleReturn = consumeGoogleReturn();
+    if (!googleReturn) return;
+    if (googleReturn.error) { setAuthError(googleReturn.error); return; }
+    api<{ token: string; admin: AdminUser }>('googleAdminLogin', { code: googleReturn.code, verifier: googleReturn.verifier })
+      .then(res => {
+        sessionStorage.setItem(STORAGE_KEY, JSON.stringify(res));
+        localStorage.setItem(LAST_ACTIVITY_KEY, String(Date.now()));
+        setToken(res.token); setAdminUser(res.admin); setAuthError(null);
+      }).catch(err => setAuthError(err.message));
+  }, []);
 
   const signOut = async () => {
     const current = token;

@@ -1,11 +1,13 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAdmin } from '@/contexts/AdminContext';
-import { EmailCodeForm } from '@/components/SignInDialog';
+import { startGoogleAdmin } from '@/lib/googleAdmin';
 import { isApiConfigured } from '@/lib/api';
 
 export function AdminLogin() {
-  const { adminUser, authError, sendCode, verifyCode } = useAdmin();
+  const { adminUser, authError } = useAdmin();
+  const [message, setMessage] = useState('');
+  const [busy, setBusy] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -18,9 +20,13 @@ export function AdminLogin() {
       <p className="mt-10 text-sm text-stone-600">Dhanlakshmi Park Inn</p>
       <h1 className="mt-1 text-3xl">Staff sign in</h1>
       {authError && <p role="alert" className="mt-4 text-sm text-red-700">{authError}</p>}
-      {isApiConfigured ? <div className="mt-5"><p className="mb-5 text-sm text-stone-600">Use the email address registered by the venue owner.</p>
-        <EmailCodeForm onSendCode={sendCode} onVerify={verifyCode} submitLabel="Send sign-in code" sentHint="Check your registered email for your code." />
-      </div> : <p role="status" className="mt-5 text-sm">Staff sign-in is unavailable until the venue owner connects the booking service.</p>}
+      <p className="my-5 text-sm text-stone-600">Use your registered venue Google account to manage bookings.</p>
+      <button disabled={busy || !isApiConfigured} className="w-full rounded-md bg-stone-900 p-3 font-medium text-white disabled:opacity-60" onClick={async () => {
+        setBusy(true); setMessage('');
+        try { await startGoogleAdmin(); } catch (err) { setMessage((err as Error).message); setBusy(false); }
+      }}>{busy ? 'Connecting to Google…' : 'Sign in with Google'}</button>
+      {message && <p className="mt-3 text-sm" role="alert">{message}</p>}
+      {!isApiConfigured && <p className="mt-3 text-sm text-stone-600" role="status">Google sign-in is awaiting venue activation.</p>}
     </section>
   </main>;
 }

@@ -137,3 +137,7 @@ PDFs are private to the Google account unless the owner changes Drive sharing. A
 The refreshed interface uses a CSS 3D venue portrait, layered floating controls, dimensional cards and reduced-motion support. The image is the existing local venue asset.
 
 GitHub deployment publishes only the frontend. It does **not** deploy or authorise the Apps Script: the Google-account steps above are required. CI runs backend regression tests, TypeScript checking and the production build before publishing.
+
+### Google sign-in for the booking dashboard
+
+Run setup as the owner of the booking Sheet. The owner becomes the first super admin. Other staff must be added by a super admin in Settings. In Google Cloud, configure an OAuth **Web application** client with the exact authorised redirect URI `https://googleguru.github.io/park-inn-bookings/`. Configure the consent audience for the venue accounts. Set `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` in **Apps Script → Project Settings → Script properties**. Keep the secret server-side. Deploy a new web-app version and set the existing GitHub Actions variable `BOOKING_API_URL` to its /exec URL, then redeploy Pages. Staff choose **Sign in with Google** and manage bookings within the dashboard. Google sign-in requests identity and email only. Once configured, staff email-code login is disabled. Customer sign-in is separate.

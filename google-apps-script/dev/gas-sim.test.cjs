@@ -652,3 +652,28 @@ test('an editor cannot replace the registered owner by running setup', () => {
   assert.throws(() => g.runSetup(), /Only the venue owner/);
   assert.equal(g.context.settings_().ownerEmail, OWNER);
 });
+
+test('Google login trusts only the verified allowlisted Google identity', () => {
+  g.props.set('GOOGLE_CLIENT_ID', 'public-id');
+  g.props.set('GOOGLE_CLIENT_SECRET', 'test-secret');
+  const request = { code: 'google-code', verifier: 'a'.repeat(43), email: OWNER };
+  let email = 'visitor@gmail.com', verified = true, validCode = true;
+  g.context.UrlFetchApp = { fetch(url, opts) {
+    if (url.endsWith('/token')) {
+      assert.equal(opts.payload.code_verifier, request.verifier);
+      return { getResponseCode: () => validCode ? 200 : 400, getContentText: () => JSON.stringify({ access_token: 'access' }) };
+    }
+    assert.equal(opts.headers.Authorization, 'Bearer access');
+    return { getResponseCode: () => 200, getContentText: () => JSON.stringify({ sub:'account-id', email, email_verified:verified, hd:'example.com' }) };
+  } };
+  assert.equal(g.call('googleAdminLogin', request).code, 'FORBIDDEN');
+  email = OWNER; verified = false;
+  assert.equal(g.call('googleAdminLogin', request).code, 'FORBIDDEN');
+  verified = true; validCode = false;
+  assert.equal(g.call('googleAdminLogin', request).code, 'AUTH');
+  validCode = true;
+  const session = g.call('googleAdminLogin', request).data;
+  assert.equal(session.admin.role, 'super_admin');
+  assert.equal(g.call('adminData', {token:session.token}).ok, true);
+  assert.equal(g.call('sendCode', {email:OWNER,purpose:'admin'}).code, 'AUTH');
+});

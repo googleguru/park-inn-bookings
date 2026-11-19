@@ -101,6 +101,8 @@ function doPost(e) {
 const ROUTES = {
   // Public
   status: apiStatus_,
+  googleAdminConfig: googleAdminConfig_,
+  googleAdminLogin: googleAdminLogin_,
   availability: apiAvailability_,
   sendCode: apiSendCode_,
   verifyCode: apiVerifyCode_,
@@ -193,6 +195,7 @@ function apiSendCode_(req) {
   const email = normEmail_(req.email);
   const purpose = req.purpose === 'admin' ? 'admin' : 'customer';
   const s = settings_();
+  if (purpose === 'admin' && googleAdminEnabled_()) throw fail_('Sign in with Google.', 'AUTH');
   if (purpose === 'admin' && !adminRole_(email)) {
     // Same reply as success so the admin list can't be probed.
     return { sent: true };
@@ -218,6 +221,7 @@ function apiSendCode_(req) {
 function apiVerifyCode_(req) {
   const email = normEmail_(req.email);
   const purpose = req.purpose === 'admin' ? 'admin' : 'customer';
+  if (purpose === 'admin' && googleAdminEnabled_()) throw fail_('Sign in with Google.', 'AUTH');
   const code = String(req.code || '').replace(/\D/g, '');
   const cache = CacheService.getScriptCache();
   const key = codeKey_(purpose, email);
@@ -243,6 +247,11 @@ function apiVerifyCode_(req) {
     return { token, profile: customerProfile_(email) };
   }
 
+  return issueAdminSession_(email);
+}
+
+function issueAdminSession_(email) {
+  const cache = CacheService.getScriptCache();
   const role = adminRole_(email);
   if (!role) throw fail_('This email is not an admin.', 'FORBIDDEN');
   // One device per admin: the newest sign-in replaces any older session.
@@ -1314,4 +1323,37 @@ function createMonthlyReport_(month, actor) {
   PropertiesService.getScriptProperties().setProperty('last-monthly-report', month);
   log_(actor, 'Monthly PDF exported', month + ' · ' + rows.length + ' bookings');
   return { month, url: file.getUrl(), bookings: rows.length };
+}
+
+function googleAdminEnabled_() {
+  const props = PropertiesService.getScriptProperties();
+  return !!(props.getProperty('GOOGLE_CLIENT_ID') && props.getProperty('GOOGLE_CLIENT_SECRET'));
+}
+
+function googleAdminConfig_() {
+  if (!googleAdminEnabled_()) throw fail_('The owner must activate Google sign-in for this venue.', 'CONFIG');
+  return { clientId: PropertiesService.getScriptProperties().getProperty('GOOGLE_CLIENT_ID'),
+    redirectUri: 'https://googleguru.github.io/park-inn-bookings/' };
+}
+
+function googleAdminLogin_(req) {
+  const config = googleAdminConfig_();
+  if (typeof req.code !== 'string' || !req.code || req.code.length > 2048 ||
+      typeof req.verifier !== 'string' || !/^[A-Za-z0-9_-]{43}$/.test(req.verifier))
+    throw fail_('Start Google sign-in again.', 'AUTH');
+  const exchange = UrlFetchApp.fetch('https://oauth2.googleapis.com/token', {
+    method: 'post', muteHttpExceptions: true, payload: { grant_type: 'authorization_code',
+      client_id: config.clientId, client_secret: PropertiesService.getScriptProperties().getProperty('GOOGLE_CLIENT_SECRET'),
+      code: req.code, code_verifier: req.verifier, redirect_uri: config.redirectUri }
+  });
+  if (exchange.getResponseCode() !== 200) throw fail_('Google sign-in expired. Try again.', 'AUTH');
+  const token = JSON.parse(exchange.getContentText()).access_token;
+  const response = UrlFetchApp.fetch('https://openidconnect.googleapis.com/v1/userinfo', {
+    headers: {Authorization: 'Bearer ' + token}, muteHttpExceptions: true
+  });
+  if (response.getResponseCode() !== 200) throw fail_('Google could not confirm your account.', 'AUTH');
+  const user = JSON.parse(response.getContentText());
+  if (user.email_verified !== true || !user.sub || !(user.hd || /@gmail\.com$/i.test(user.email)))
+    throw fail_('Use the registered Gmail or Google Workspace account.', 'FORBIDDEN');
+  return withLock_(() => issueAdminSession_(normEmail_(user.email)));
 }
