@@ -1,127 +1,25 @@
-import { CalendarDays, Sparkles } from "lucide-react";
-import { motion, useScroll, useTransform, useReducedMotion } from "motion/react";
-import { useRef } from "react";
-import heroImage from "@/assets/venue-hero.webp";
-import { BlurFade } from "@/components/magicui/blur-fade";
-import { WordRotate } from "@/components/magicui/word-rotate";
-import { Marquee } from "@/components/magicui/marquee";
-import { MagneticButton } from "@/components/unlumen/magnetic-button";
+import { useState } from 'react';
+import { format } from 'date-fns';
+import heroImage from '@/assets/venue-hero.webp';
+import { isApiConfigured } from '@/lib/api';
 
-const occasions = ["Weddings", "Receptions", "Birthdays", "Corporate Meets", "Anniversaries"];
-
-const Hero = () => {
-  const reduceMotion = useReducedMotion();
-  const ref = useRef<HTMLElement>(null);
-  const { scrollYProgress } = useScroll({ target: ref, offset: ["start start", "end start"] });
-  const imageY = useTransform(scrollYProgress, [0, 1], ["0%", "18%"]);
-  const imageScale = useTransform(scrollYProgress, [0, 1], [1.05, 1.15]);
-
-  const scrollTo = (id: string) => {
-    document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
-  };
-
-  return (
-    <section
-      ref={ref}
-      id="home"
-      className="relative flex min-h-[100svh] flex-col overflow-hidden bg-secondary text-white"
-    >
-      <motion.img
-        src={heroImage}
-        alt=""
-        aria-hidden="true"
-        style={reduceMotion ? undefined : { y: imageY, scale: imageScale }}
-        className="absolute inset-0 h-full w-full object-cover"
-      />
-      <div className="absolute inset-0" style={{ background: "var(--gradient-hero)" }} />
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,hsl(24_14%_6%/0.55),transparent_60%)]" />
-
-      <div className="container relative z-10 mx-auto flex flex-1 flex-col gap-12 lg:flex-row items-center px-4 pt-32 pb-16">
-        <div className="max-w-3xl flex-1 space-y-7">
-          <BlurFade delay={0.1}>
-            <span className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-1.5 text-xs font-medium uppercase tracking-[0.2em] text-white/85 backdrop-blur">
-              <span className="h-1.5 w-1.5 rounded-full bg-gold" />
-              West Jafferkhanpet · Chennai
-            </span>
-          </BlurFade>
-
-          <BlurFade delay={0.2}>
-            <h2 className="text-balance text-4xl font-semibold leading-[1.05] tracking-tight md:text-6xl lg:text-7xl">
-              Book Your Special Day at{" "}
-              <span className="italic text-gold">Dhanlakshmi Park Inn</span>
-            </h2>
-          </BlurFade>
-
-          <BlurFade delay={0.3}>
-            <p className="flex flex-wrap items-baseline gap-x-2 text-lg text-white/80 md:text-xl">
-              Thoughtfully hosted
-              <WordRotate
-                words={occasions}
-                duration={2600}
-                className="inline-block font-serif text-2xl italic text-white md:text-3xl"
-                motionProps={{
-                  initial: { opacity: 0, y: 16, filter: "blur(6px)" },
-                  animate: { opacity: 1, y: 0, filter: "blur(0px)" },
-                  exit: { opacity: 0, y: -16, filter: "blur(6px)" },
-                  transition: { duration: 0.45, ease: [0.22, 1, 0.36, 1] },
-                }}
-              />
-            </p>
-          </BlurFade>
-
-          <BlurFade delay={0.4}>
-            <p className="max-w-xl text-base leading-relaxed text-white/70 md:text-lg">
-              From intimate gatherings to grand celebrations, we're here to make your moments
-              unforgettable.
-            </p>
-          </BlurFade>
-
-          <BlurFade delay={0.5}>
-            <div className="flex flex-wrap items-center gap-4 pt-2">
-              <MagneticButton
-                size="lg"
-                onClick={() => scrollTo("calendar")}
-                className="h-14 rounded-full bg-gold px-8 text-base font-semibold text-secondary shadow-elegant hover:bg-gold/90"
-              >
-                Check Availability &amp; Book Now
-                <CalendarDays className="h-4 w-4" />
-              </MagneticButton>
-              <button
-                onClick={() => scrollTo("about")}
-                className="group inline-flex h-14 items-center gap-2 rounded-full px-4 text-sm font-medium text-white/80 transition-colors hover:text-white"
-              >
-                Explore the venue
-                <Sparkles className="h-4 w-4" />
-              </button>
-            </div>
-          </BlurFade>
-        </div>
-        <div className="venue-scene" aria-label="A layered portrait of the venue">
-          <div className="venue-orbit" aria-hidden="true" />
-          <div className="venue-portrait">
-            <img src={heroImage} alt="Dhanlakshmi Park Inn event venue" className="h-full w-full object-cover" />
-            <div className="venue-portrait-caption"><span>THE SETTING FOR YOUR STORY</span><p>A place to celebrate.</p></div>
-          </div>
-          <div className="venue-float venue-float-top"><Sparkles size={20} className="text-gold" /><span>Beautiful moments.<br /><b>Lasting memories.</b></span></div>
-          <button className="venue-float venue-float-bottom" onClick={() => scrollTo('calendar')}><CalendarDays size={22} className="text-gold" /><span>Your next celebration<br /><b>Find your date</b></span></button>
-        </div>
+export default function Hero({ onDate }: { onDate: (date: Date) => void }) {
+  const today = format(new Date(), 'yyyy-MM-dd');
+  const [day, setDay] = useState(today);
+  return <section id="home" className="relative isolate overflow-hidden bg-stone-950 text-white">
+    <img src={heroImage} alt="Exterior of Dhanlakshmi Park Inn in Chennai" className="absolute inset-0 -z-20 h-full w-full object-cover object-center" />
+    <div className="absolute inset-0 -z-10 bg-gradient-to-r from-black/90 via-black/65 to-black/20" />
+    <div className="mx-auto grid max-w-7xl items-end gap-10 px-6 pb-14 pt-44 md:min-h-[78svh] md:grid-cols-[1fr_22rem] md:px-12 md:pb-20">
+      <div><p className="mb-5 text-sm tracking-widest text-amber-100">WEST JAFFERKHANPET, CHENNAI</p>
+        <h2 className="max-w-2xl text-5xl leading-tight md:text-7xl">Dhanlakshmi<br /><i className="text-gold">Park Inn</i></h2>
+        <p className="mt-5 max-w-lg text-lg text-white/90">An event venue for weddings, receptions and family gatherings on V.V. Giri Salai.</p>
       </div>
-
-      <div className="relative z-10 border-t border-white/10 bg-black/20 backdrop-blur-md">
-        <Marquee pauseOnHover className="py-4 [--duration:35s] [--gap:3rem]">
-          {occasions.map((o) => (
-            <span
-              key={o}
-              className="flex items-center gap-12 font-serif text-lg italic text-white/70 md:text-xl"
-            >
-              {o}
-              <span className="text-xs not-italic text-gold">✦</span>
-            </span>
-          ))}
-        </Marquee>
-      </div>
-    </section>
-  );
-};
-
-export default Hero;
+      <form className="rounded-xl border border-stone-200 bg-stone-50 p-6 text-stone-900 shadow-2xl" onSubmit={e => { e.preventDefault(); onDate(new Date(day + 'T12:00:00')); }}>
+        <h3 className="text-2xl">Plan your visit</h3>
+        <label className="mt-5 block text-sm font-medium">Event date<input type="date" required min={today} value={day} onChange={e => setDay(e.target.value)} className="mt-2 block w-full rounded-md border bg-white p-3" /></label>
+        <button className="mt-4 w-full rounded-md bg-stone-900 p-3 font-medium text-white hover:bg-stone-700">View date in calendar</button>
+        {!isApiConfigured && <a className="mt-4 block text-center text-sm underline" href="tel:+919841414699">Call the venue for availability</a>}
+      </form>
+    </div>
+  </section>;
+}

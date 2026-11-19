@@ -23,7 +23,7 @@ A modern event venue booking platform for Dhanlakshmi Park Inn, allowing custome
 - Each table is a tab in that Sheet: Bookings, Customers, Money, Admins, Activity, Settings.
 - Confirmed bookings go to a **Park Inn Bookings** Google Calendar; events added there block dates on the website.
 - Sign-in codes and notifications are sent from the admin's Gmail.
-- No paid services, databases or API keys. Step-by-step setup: open `/#/setup` on the website.
+- No paid services, databases or API keys. Owner installation instructions are below.
 
 ## Getting Started
 
@@ -123,7 +123,7 @@ The existing Google-account backend remains in use. No paid PDF service, 3D asse
 ### Activate in the owner's Google account
 
 1. Open the existing bookings Sheet → Extensions → Apps Script.
-2. Replace `Code.gs` with `google-apps-script/Code.gs` (also available using Copy the script at `/#/setup`).
+2. Replace `Code.gs` with `google-apps-script/Code.gs`.
 3. Run `setup` again and authorise Drive access. This preserves existing rows and the configured calendar, replaces this app's old scheduled triggers, installs 15-minute calendar sync and a daily report check around 06:00 Asia/Kolkata, and creates a private `Park Inn Monthly Reports` folder.
 4. Deploy → Manage deployments → Edit → New version → Deploy. Keep the existing web-app URL. If this is a first installation, set the GitHub Actions repository variable `BOOKING_API_URL` to that URL and rerun deployment.
 5. Sign in as the owner, open Settings, check automation status, and generate a test report. Review Apps Script Executions for authorisation or quota failures.

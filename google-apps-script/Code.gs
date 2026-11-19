@@ -132,7 +132,7 @@ const ROUTES = {
 
 function handle_(req) {
   try {
-    const route = ROUTES[req && req.action];
+    const route = req && Object.prototype.hasOwnProperty.call(ROUTES, req.action) && ROUTES[req.action];
     if (!route) throw fail_('Unknown action', 'INVALID');
     return json_({ ok: true, data: route(req) });
   } catch (err) {
@@ -1170,6 +1170,12 @@ function setup() {
   if (!ss) throw new Error('Open this script from your Google Sheet: Extensions → Apps Script.');
   const owner = String(Session.getEffectiveUser().getEmail() || '').toLowerCase();
   if (!owner) throw new Error('Could not read your Google account email. Please run setup again.');
+  const registeredOwner = settings_().ownerEmail;
+  const sheetOwner = ss.getOwner();
+  if ((registeredOwner && registeredOwner !== owner) ||
+      (!registeredOwner && (!sheetOwner || String(sheetOwner.getEmail()).toLowerCase() !== owner))) {
+    throw new Error('Only the venue owner can initialise or repair the booking service.');
+  }
   ss.setSpreadsheetTimeZone(TZ);
 
   Object.keys(TABLES).forEach((name) => {

@@ -646,3 +646,9 @@ describe('private monthly PDF automation', () => {
     assert.equal(g.driveFiles[0].trashed, false);
   });
 });
+
+test('an editor cannot replace the registered owner by running setup', () => {
+  g.context.Session.getEffectiveUser = () => ({ getEmail: () => 'editor@example.com' });
+  assert.throws(() => g.runSetup(), /Only the venue owner/);
+  assert.equal(g.context.settings_().ownerEmail, OWNER);
+});

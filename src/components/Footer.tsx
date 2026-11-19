@@ -1,4 +1,4 @@
-import { Heart } from "lucide-react";
+import { Link } from "react-router-dom";
 
 const Footer = () => {
   return (
@@ -9,14 +9,7 @@ const Footer = () => {
           <h3 className="text-3xl md:text-4xl font-semibold">
             Dhanlakshmi <span className="italic text-gold">Park Inn</span>
           </h3>
-          <p className="text-sm text-secondary-foreground/70">
-            Where every moment becomes a beautiful memory
-          </p>
-          <div className="flex items-center justify-center gap-2 text-sm text-secondary-foreground/70">
-            <span>Made with</span>
-            <Heart className="w-4 h-4 fill-current text-gold" />
-            <span>for your special celebrations</span>
-          </div>
+          <Link className="text-sm underline" to="/admin">Staff sign in</Link>
           <div className="h-px w-24 bg-secondary-foreground/15" />
           <p className="text-xs text-secondary-foreground/50">
             © {new Date().getFullYear()} Dhanlakshmi Park Inn. All rights reserved.

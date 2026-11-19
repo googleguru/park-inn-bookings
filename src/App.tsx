@@ -2,13 +2,12 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { HashRouter, Routes, Route } from "react-router-dom";
+import { HashRouter, Routes, Route, Navigate } from "react-router-dom";
 import { ClientAuthProvider } from "@/contexts/ClientAuthContext";
 import { MotionConfig } from "motion/react";
 import Index from "./pages/Index";
 import AdminPage from "./pages/Admin";
 import Profile from "./pages/Profile";
-import Setup from "./pages/Setup";
 import NotFound from "./pages/NotFound";
 import { Dashboard } from "@/components/admin/Dashboard";
 import { Bookings } from "@/components/admin/Bookings";
@@ -38,7 +37,7 @@ const App = () => (
           {/* Public routes */}
           <Route path="/" element={<Index />} />
           <Route path="/profile" element={<Profile />} />
-          <Route path="/setup" element={<Setup />} />
+          <Route path="/setup" element={<Navigate to="/admin" replace />} />
 
           {/* Admin section — AdminPage wraps all sub-routes in AdminProvider + AdminGuard */}
           <Route path="/admin" element={<AdminPage />}>

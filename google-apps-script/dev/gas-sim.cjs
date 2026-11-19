@@ -128,6 +128,7 @@ function createGasContext(opts = {}) {
       if (sheetsList.some((s) => s.name === n)) throw new Error('A sheet with the name "' + n + '" already exists.');
       const s = new Sheet(n); sheetsList.push(s); return s;
     },
+    getOwner: () => ({ getEmail: () => ownerEmail }),
     getSheets: () => sheetsList.slice(),
     deleteSheet(s) {
       if (sheetsList.length <= 1) throw new Error('You can\'t delete all the visible sheets in a document.');

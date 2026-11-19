@@ -126,20 +126,5 @@ All colors MUST be HSL.
   }
 }
 
-/* Lightweight dimensional design: local imagery and CSS, no paid assets or WebGL. */
-.venue-scene { position:relative; width:min(100%,420px); height:480px; flex-shrink:0; perspective:1100px; margin:24px 16px; }
-.venue-portrait { position:absolute; inset:20px 26px; border:1px solid hsl(40 62% 72% / .6); border-radius:180px 180px 28px 28px; overflow:hidden; transform:rotateY(-14deg) rotateX(5deg) rotateZ(3deg); box-shadow:18px 22px 0 hsl(34 40% 25% / .45),30px 40px 60px hsl(0 0% 0% / .6); transition:transform .7s; }
-.venue-scene:hover .venue-portrait { transform:rotateY(-5deg) rotateX(2deg); }
-.venue-portrait-caption { position:absolute; inset:auto 0 0; padding:80px 24px 32px; background:linear-gradient(transparent,hsl(24 14% 6% / .95)); }
-.venue-portrait-caption span { font-size:12px; letter-spacing:.16em; color:hsl(40 62% 75%); }
-.venue-portrait-caption p { margin-top:10px; font:italic 28px 'Playfair Display',serif; }
-.venue-orbit { position:absolute; inset:0 -8px; border:1px solid hsl(40 62% 62% / .3); border-radius:50%; transform:rotateZ(-15deg); }
-.venue-float { position:absolute; display:flex; align-items:center; gap:14px; padding:16px 22px; border:1px solid hsl(40 62% 62% / .4); border-radius:16px; background:hsl(24 14% 10% / .92); box-shadow:0 18px 40px hsl(0 0% 0% / .4),inset 0 1px 0 hsl(0 0% 100% / .15); font-size:14px; line-height:1.7; text-align:left; }
-.venue-float-top { top:40px; left:-15px; transform:rotate(-5deg); }
-.venue-float-bottom { bottom:2px; right:-12px; transform:rotate(3deg); }
-.venue-float-bottom:hover { background:hsl(24 14% 18%); }
-.venue-float-bottom:focus-visible { outline:3px solid hsl(var(--gold)); outline-offset:4px; }
 #about .rounded-2xl { transition:transform .3s,box-shadow .3s; }
 @media (hover:hover) and (prefers-reduced-motion:no-preference) { #about .rounded-2xl:hover { transform:perspective(1000px) translateY(-5px) rotateX(2deg); box-shadow:0 18px 35px -18px hsl(34 60% 30% / .35); } }
-@media (max-width:640px) { .venue-scene { width:300px; max-width:calc(100vw - 64px); height:360px; } .venue-float { padding:12px; font-size:13px; } .venue-portrait-caption p { font-size:22px; } }
-@media (prefers-reduced-motion:reduce) { *,*::before,*::after { scroll-behavior:auto !important; animation:none !important; transition:none !important; } .venue-portrait,.venue-scene:hover .venue-portrait { transform:none; } }

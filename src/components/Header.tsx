@@ -123,7 +123,7 @@ const Header = () => {
                 onHero ? "text-white/70" : "text-muted-foreground"
               )}
             >
-              Where every moment becomes a beautiful memory
+              Event venue · Chennai
             </p>
           </button>
 

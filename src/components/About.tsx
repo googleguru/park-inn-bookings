@@ -8,7 +8,7 @@ import {
 } from "lucide-react";
 import { BlurFade } from "@/components/magicui/blur-fade";
 import { MagicCard } from "@/components/magicui/magic-card";
-import ScrollRevealParagraph from "@/components/smoothui/scroll-reveal-paragraph";
+
 
 const About = () => {
   const facilities = [
@@ -57,17 +57,7 @@ const About = () => {
             </h2>
           </BlurFade>
           <div className="space-y-6">
-            <ScrollRevealParagraph
-              className="font-serif text-2xl md:text-3xl leading-snug"
-              paragraph="Dhanlakshmi Park Inn is designed for joy. Whether it's a dream wedding, a golden jubilee, or a power-packed corporate meet, our spaces, services, and team are here to make everything effortless and memorable."
-            />
-            <BlurFade inView delay={0.1}>
-              <p className="text-lg text-muted-foreground leading-relaxed">
-                We believe every celebration deserves the perfect backdrop. From the moment you
-                step in, our venue transforms your vision into reality with attention to every
-                detail.
-              </p>
-            </BlurFade>
+            <p className="text-lg leading-relaxed text-muted-foreground">The venue offers parking, catering arrangements and décor support. Contact the booking desk to discuss guest numbers, timings and the layout for your event.</p>
           </div>
         </div>
 

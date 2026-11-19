@@ -16,7 +16,9 @@ import { api, ApiError, isApiConfigured, type SystemStatus } from "@/lib/api";
 
 type DateStatus = "available" | "pending" | "booked";
 
-const BookingCalendar = () => {
+const BookingCalendar = ({ visitDate }: { visitDate?: Date }) => {
+  const [month, setMonth] = useState(new Date());
+  const [availabilityReady, setAvailabilityReady] = useState(false);
   const { customer, loading, openSignIn, requestAccess } = useClientAuth();
   const [date, setDate] = useState<Date | undefined>(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
@@ -29,11 +31,15 @@ const BookingCalendar = () => {
   const [accessForm, setAccessForm] = useState({ name: "", mobile: "" });
   const [requesting, setRequesting] = useState(false);
 
+  useEffect(() => { if (visitDate) { setDate(visitDate); setMonth(visitDate); } }, [visitDate]);
+
   const fetchAvailability = useCallback(async () => {
     try {
       const res = await api<{ dates: Record<string, DateStatus> }>("availability");
       setBookedDates(res.dates);
+      setAvailabilityReady(true);
     } catch (err) {
+      setAvailabilityReady(false);
       console.error("Error fetching availability:", err);
     }
   }, []);
@@ -49,7 +55,7 @@ const BookingCalendar = () => {
     return () => window.clearInterval(id);
   }, [fetchAvailability]);
 
-  const bookingOpen = !!status?.configured && status.bookingEnabled;
+  const bookingOpen = !!status?.configured && status.bookingEnabled && availabilityReady;
 
   const getDateStatus = (d: Date): DateStatus => bookedDates[format(d, "yyyy-MM-dd")] ?? "available";
 
@@ -60,7 +66,7 @@ const BookingCalendar = () => {
       return;
     }
     if (!bookingOpen) {
-      toast("Online booking opens soon. Please call us on 098414 14699 to book this date.", { duration: 5000 });
+      toast("Please call us on 098414 14699 to book this date.", { duration: 5000 });
       return;
     }
     setSelectedDate(d);
@@ -125,9 +131,9 @@ const BookingCalendar = () => {
           {statusLoaded && !bookingOpen && (
             <p className="mt-5 inline-flex flex-wrap items-center justify-center gap-2 rounded-full border border-primary/25 bg-accent/50 px-5 py-2 text-sm">
               <Phone className="h-3.5 w-3.5 text-primary" />
-              Online booking opens soon — call
+              Confirm availability by phone at
               <a href="tel:+919841414699" className="font-semibold text-primary hover:underline">098414 14699</a>
-              to book today.
+
             </p>
           )}
           {bookingOpen && !customer && !loading && (
@@ -146,27 +152,28 @@ const BookingCalendar = () => {
         <BlurFade inView delay={0.1} className="max-w-4xl mx-auto">
           <Card className="relative overflow-hidden rounded-3xl border-border/70 p-6 md:p-10 shadow-elegant">
             <BorderBeam size={120} duration={10} colorFrom="hsl(var(--gold))" colorTo="hsl(var(--primary))" borderWidth={1.5} />
-            <div className="flex flex-wrap gap-4 justify-center mb-8">
+            {bookingOpen && <div className="flex flex-wrap gap-4 justify-center mb-8">
               <Badge variant="outline" className="flex items-center gap-2 rounded-full px-4 py-1.5 font-medium bg-success/10 border-success/30">
                 <CheckCircle className="w-4 h-4 text-success" />Available
               </Badge>
               <Badge variant="outline" className="flex items-center gap-2 rounded-full px-4 py-1.5 font-medium bg-warning/10 border-warning/30">
-                <Clock className="w-4 h-4 text-warning" />Advanced Booked
+                <Clock className="w-4 h-4 text-warning" />Requested
               </Badge>
               <Badge variant="outline" className="flex items-center gap-2 rounded-full px-4 py-1.5 font-medium bg-destructive/10 border-destructive/30">
                 <Lock className="w-4 h-4 text-destructive" />Booked
               </Badge>
-            </div>
-
+            </div>}
+            {date && <p aria-live="polite" className="mb-4 text-center font-medium">{format(date, "EEEE, d MMMM yyyy")}{bookingOpen ? " · " + getDateStatus(date) : " · Call to confirm"}</p>}
             <div className="flex justify-center">
               <Calendar
                 mode="single"
+                month={month} onMonthChange={setMonth}
                 selected={date}
                 onSelect={(d) => {
                   setDate(d);
                   handleDateClick(d);
                 }}
-                modifiers={modifiers}
+                modifiers={bookingOpen ? modifiers : {}}
                 modifiersStyles={modifiersStyles}
                 className="rounded-2xl border bg-background p-4 shadow-soft"
                 disabled={(d) => format(d, "yyyy-MM-dd") < format(new Date(), "yyyy-MM-dd")}
