@@ -87,7 +87,7 @@ export default function Setup() {
         </h1>
         <p className="mt-4 text-lg text-muted-foreground">
           Your bookings, customers, income and expenses will be kept in a Google Sheet in your own Google account, and
-          confirmed bookings will appear in your Google Calendar. Nothing to pay and no technical accounts to create.
+          confirmed bookings will appear in your Google Calendar. Monthly PDFs are archived privately in Google Drive. No paid PDF service is required; Google storage and daily usage quotas apply.
         </p>
         {isApiConfigured && (
           <p className="mt-4 inline-flex items-center gap-2 rounded-full bg-emerald-500/10 px-4 py-1.5 text-sm text-emerald-800 dark:text-emerald-300">
@@ -113,7 +113,7 @@ export default function Setup() {
           <Step n={3} title="Run setup once">
             <p>
               In the toolbar, pick <Kbd>setup</Kbd> from the function list and press <Kbd>▶ Run</Kbd>. Google will ask for
-              permission because the script works with your Sheet, Calendar and Gmail:
+              permission because the script works with your Sheet, Calendar, Drive and Gmail:
             </p>
             <p>
               <Kbd>Review permissions</Kbd> → choose your account → <Kbd>Advanced</Kbd> → <Kbd>Go to … (unsafe)</Kbd> → <Kbd>Allow</Kbd>.
@@ -172,7 +172,7 @@ export default function Setup() {
         <div className="mt-8 rounded-2xl border border-dashed border-border p-5 text-sm text-muted-foreground">
           <p className="font-medium text-foreground">When the script is updated later</p>
           <p className="mt-1">
-            Paste the new script over the old one, save, then <Kbd>Deploy</Kbd> → <Kbd>Manage deployments</Kbd> → ✏️ →
+            Paste the new script over the old one, save, run setup again to authorise Drive and install the 15-minute sync and monthly report jobs, then <Kbd>Deploy</Kbd> → <Kbd>Manage deployments</Kbd> → ✏️ →
             Version: <b>New version</b> → <Kbd>Deploy</Kbd>. The URL stays the same, so the website needs no change.
           </p>
         </div>

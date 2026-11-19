@@ -57,7 +57,7 @@ describe('setup / status', () => {
 
   test('status after setup', () => {
     const r = g.get('status');
-    assert.deepEqual(r.data, { version: 1, configured: true, bookingEnabled: true, venueName: 'Dhanlakshmi Park Inn' });
+    assert.deepEqual(r.data, { version: 2, configured: true, bookingEnabled: true, venueName: 'Dhanlakshmi Park Inn' });
     assert.deepEqual(g.sheets.names().sort(), ['Activity', 'Admins', 'Bookings', 'Customers', 'Money', 'Settings']);
     assert.equal(g.sheets.dump('Bookings')[0][0], 'Booking ID');
     assert.equal(g.sheets.dump('Money')[0][3], 'Category');
@@ -70,7 +70,8 @@ describe('setup / status', () => {
   test('setup twice keeps one trigger, one owner row, one calendar', () => {
     g.runSetup();
     assert.equal(g.triggers.filter((t) => t.getHandlerFunction() === 'syncCalendar').length, 1);
-    assert.equal(g.triggers[0].hours, 1);
+    assert.equal(g.triggers[0].minutes, 15);
+    assert.equal(g.triggers.filter(t => t.getHandlerFunction() === 'monthlyReportJob').length, 1);
     assert.equal(g.sheets.dump('Admins').length, 2);
     assert.equal(g.calendar.all().length, 1);
   });
@@ -591,5 +592,57 @@ describe('mail budget', () => {
     assert.equal(g.call('sendCode', { email: 'c@example.com', purpose: 'customer' }).code, 'MAIL_LIMIT');
     g.clock.advance(86400000);
     assert.equal(g.call('sendCode', { email: 'c@example.com', purpose: 'customer' }).ok, true);
+  });
+});
+
+
+describe('private monthly PDF automation', () => {
+  test('unauthenticated users and staff cannot export private reports', () => {
+    assert.equal(g.call('monthlyReport', { month: '2026-11' }).code, 'AUTH');
+    const { staff } = addAdmin();
+    assert.equal(g.call('monthlyReport', { token: staff, month: '2026-11' }).code, 'FORBIDDEN');
+    assert.equal(g.driveFiles.length, 0);
+  });
+  test('validates month and rejects future reports', () => {
+    const a = adminToken();
+    for (const month of ['2026-13', '2026-1', '2027-01', '<script>', null]) {
+      assert.equal(g.call('monthlyReport', { token: a, month }).code, 'INVALID');
+    }
+  });
+  test('exports by event month, escapes content, includes money and replaces prior PDF', () => {
+    const a = adminToken();
+    g.call('bookingCreate', { ...booking({ date: '2026-11-22', name: '<b>Guest</b>' }), token: a });
+    g.call('bookingCreate', { ...booking(), token: a });
+    g.call('moneyAdd', { token: a, date: '2026-11-05', type: 'income', category: 'Other income', amount: 250 });
+    const result = g.call('monthlyReport', { token: a, month: '2026-11' });
+    assert.equal(result.ok, true, JSON.stringify(result));
+    assert.equal(result.data.bookings, 1);
+    const pdf = g.driveFiles[0];
+    assert.equal(pdf.mime, 'application/pdf');
+    assert.equal(pdf.name, 'Park-Inn-Bookings-2026-11.pdf');
+    assert.match(pdf.html, /&lt;b&gt;Guest&lt;\/b&gt;/);
+    assert.match(pdf.html, /INR 250.00/);
+    assert.doesNotMatch(pdf.html, /2026-12-05/);
+    g.call('monthlyReport', { token: a, month: '2026-11' });
+    assert.equal(g.driveFiles.filter(f => !f.trashed).length, 1);
+  });
+  test('scheduled job exports previous month once, handles January and retries failure', () => {
+    const original = g.context.Utilities.newBlob;
+    g.context.Utilities.newBlob = () => { throw new Error('quota'); };
+    assert.throws(() => g.context.monthlyReportJob(), /quota/);
+    assert.equal(g.props.has('monthly-report-complete'), false);
+    g.context.Utilities.newBlob = original;
+    assert.equal(g.context.monthlyReportJob().month, '2026-10');
+    assert.equal(g.context.monthlyReportJob().skipped, true);
+    assert.equal(g.driveFiles.length, 1);
+    g.clock.advance(Date.parse('2027-01-01T01:00:00Z') - T0);
+    assert.equal(g.context.monthlyReportJob().month, '2026-12');
+  });
+  test('failed regeneration preserves previous PDF', () => {
+    const a = adminToken();
+    g.call('monthlyReport', { token: a, month: '2026-10' });
+    g.context.Utilities.newBlob = () => { throw new Error('quota'); };
+    assert.equal(g.call('monthlyReport', { token: a, month: '2026-10' }).ok, false);
+    assert.equal(g.driveFiles[0].trashed, false);
   });
 });

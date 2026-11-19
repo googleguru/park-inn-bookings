@@ -114,3 +114,26 @@ Feel free to submit issues and enhancement requests!
 ## License
 
 This project is private and proprietary to Dhanlakshmi Park Inn.
+
+
+## Calendar and monthly PDF automation (version 2)
+
+The existing Google-account backend remains in use. No paid PDF service, 3D asset subscription, or new database has been added. Google Apps Script quotas and Drive storage limits still apply; free usage is not unlimited. See https://developers.google.com/apps-script/guides/services/quotas.
+
+### Activate in the owner's Google account
+
+1. Open the existing bookings Sheet → Extensions → Apps Script.
+2. Replace `Code.gs` with `google-apps-script/Code.gs` (also available using Copy the script at `/#/setup`).
+3. Run `setup` again and authorise Drive access. This preserves existing rows and the configured calendar, replaces this app's old scheduled triggers, installs 15-minute calendar sync and a daily report check around 06:00 Asia/Kolkata, and creates a private `Park Inn Monthly Reports` folder.
+4. Deploy → Manage deployments → Edit → New version → Deploy. Keep the existing web-app URL. If this is a first installation, set the GitHub Actions repository variable `BOOKING_API_URL` to that URL and rerun deployment.
+5. Sign in as the owner, open Settings, check automation status, and generate a test report. Review Apps Script Executions for authorisation or quota failures.
+
+Confirmed website bookings write to the owner's dedicated Park Inn Bookings calendar immediately. Scheduled sync imports Calendar date changes and cancellations; unrelated events in that calendar block availability. It does not access all personal calendars or turn arbitrary Calendar events into customer records. Custom event time edits are not mapped to booking slots; change slots in the booking admin. Avoid editing the same booking simultaneously in Calendar and the website.
+
+The report job creates the previous calendar month's PDF on its first daily run, retries failures on later days, and skips a month already completed. The first run also archives the previous month. Earlier historical months can be generated individually by the super admin in Settings. Reports group bookings by **event date** and financial entries by **transaction date**, both in Asia/Kolkata. All booking statuses are included; quoted amounts and received payments are separate. An empty month still produces a report. Regeneration replaces that month's PDF, with the old file moved to Drive trash only after the new file is saved. Later edits to closed months require manual regeneration.
+
+PDFs are private to the Google account unless the owner changes Drive sharing. Admin staff cannot generate reports; public/customer endpoints do not return report content. No emails or public file-sharing permissions are created by the report job.
+
+The refreshed interface uses a CSS 3D venue portrait, layered floating controls, dimensional cards and reduced-motion support. The image is the existing local venue asset.
+
+GitHub deployment publishes only the frontend. It does **not** deploy or authorise the Apps Script: the Google-account steps above are required. CI runs backend regression tests, TypeScript checking and the production build before publishing.

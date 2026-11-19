@@ -135,6 +135,7 @@ export interface ActivityEntry {
 
 export interface AdminData {
   me: { email: string; role: AdminRole };
+  automation?: { calendarScheduled: boolean; reportsScheduled: boolean; lastSync: string; lastReport: string; reportsFolder: string };
   settings: { venueName: string; bookingEnabled: boolean; notifyEmail: string; ownerEmail: string };
   links: { sheet: string; calendar: string };
   bookings: Booking[];

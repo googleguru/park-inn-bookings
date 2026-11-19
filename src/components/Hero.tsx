@@ -1,5 +1,5 @@
-import { ArrowDown, ArrowRight } from "lucide-react";
-import { motion, useScroll, useTransform } from "motion/react";
+import { CalendarDays, Sparkles } from "lucide-react";
+import { motion, useScroll, useTransform, useReducedMotion } from "motion/react";
 import { useRef } from "react";
 import heroImage from "@/assets/venue-hero.webp";
 import { BlurFade } from "@/components/magicui/blur-fade";
@@ -10,6 +10,7 @@ import { MagneticButton } from "@/components/unlumen/magnetic-button";
 const occasions = ["Weddings", "Receptions", "Birthdays", "Corporate Meets", "Anniversaries"];
 
 const Hero = () => {
+  const reduceMotion = useReducedMotion();
   const ref = useRef<HTMLElement>(null);
   const { scrollYProgress } = useScroll({ target: ref, offset: ["start start", "end start"] });
   const imageY = useTransform(scrollYProgress, [0, 1], ["0%", "18%"]);
@@ -29,14 +30,14 @@ const Hero = () => {
         src={heroImage}
         alt=""
         aria-hidden="true"
-        style={{ y: imageY, scale: imageScale }}
+        style={reduceMotion ? undefined : { y: imageY, scale: imageScale }}
         className="absolute inset-0 h-full w-full object-cover"
       />
       <div className="absolute inset-0" style={{ background: "var(--gradient-hero)" }} />
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,hsl(24_14%_6%/0.55),transparent_60%)]" />
 
-      <div className="container relative z-10 mx-auto flex flex-1 items-center px-4 pt-32 pb-16">
-        <div className="max-w-3xl space-y-7">
+      <div className="container relative z-10 mx-auto flex flex-1 flex-col gap-12 lg:flex-row items-center px-4 pt-32 pb-16">
+        <div className="max-w-3xl flex-1 space-y-7">
           <BlurFade delay={0.1}>
             <span className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-1.5 text-xs font-medium uppercase tracking-[0.2em] text-white/85 backdrop-blur">
               <span className="h-1.5 w-1.5 rounded-full bg-gold" />
@@ -83,17 +84,26 @@ const Hero = () => {
                 className="h-14 rounded-full bg-gold px-8 text-base font-semibold text-secondary shadow-elegant hover:bg-gold/90"
               >
                 Check Availability &amp; Book Now
-                <ArrowRight className="h-4 w-4" />
+                <CalendarDays className="h-4 w-4" />
               </MagneticButton>
               <button
                 onClick={() => scrollTo("about")}
                 className="group inline-flex h-14 items-center gap-2 rounded-full px-4 text-sm font-medium text-white/80 transition-colors hover:text-white"
               >
                 Explore the venue
-                <ArrowDown className="h-4 w-4 transition-transform group-hover:translate-y-0.5" />
+                <Sparkles className="h-4 w-4" />
               </button>
             </div>
           </BlurFade>
+        </div>
+        <div className="venue-scene" aria-label="A layered portrait of the venue">
+          <div className="venue-orbit" aria-hidden="true" />
+          <div className="venue-portrait">
+            <img src={heroImage} alt="Dhanlakshmi Park Inn event venue" className="h-full w-full object-cover" />
+            <div className="venue-portrait-caption"><span>THE SETTING FOR YOUR STORY</span><p>A place to celebrate.</p></div>
+          </div>
+          <div className="venue-float venue-float-top"><Sparkles size={20} className="text-gold" /><span>Beautiful moments.<br /><b>Lasting memories.</b></span></div>
+          <button className="venue-float venue-float-bottom" onClick={() => scrollTo('calendar')}><CalendarDays size={22} className="text-gold" /><span>Your next celebration<br /><b>Find your date</b></span></button>
         </div>
       </div>
 

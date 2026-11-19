@@ -11,7 +11,7 @@
  * Deploy → New deployment → Web app (Execute as: Me, Who has access: Anyone).
  */
 
-const VERSION = 1;
+const VERSION = 2;
 const TZ = 'Asia/Kolkata';
 
 const SLOTS = {
@@ -127,6 +127,7 @@ const ROUTES = {
   adminRemove: apiAdminRemove_,
   calendarSync: apiCalendarSync_,
   importBookings: apiImportBookings_,
+  monthlyReport: apiMonthlyReport_,
 };
 
 function handle_(req) {
@@ -357,6 +358,7 @@ function apiAdminData_(req) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   return {
     me: admin,
+    automation: automationStatus_(),
     settings: {
       venueName: s.venueName || '',
       bookingEnabled: isBookingOpen_(s),
@@ -678,7 +680,7 @@ function externalCalendarDates_(from) {
   cal.getEvents(start, end).forEach((ev) => {
     if (ev.getTag('bookingId')) return;
     const first = ev.isAllDayEvent() ? ev.getAllDayStartDate() : ev.getStartTime();
-    const last = ev.isAllDayEvent() ? new Date(ev.getAllDayEndDate().getTime() - 1) : ev.getEndTime();
+    const last = new Date((ev.isAllDayEvent() ? ev.getAllDayEndDate() : ev.getEndTime()).getTime() - 1);
     for (let d = formatDay_(first); d <= formatDay_(last) && dates.length < 2000; d = addDays_(d, 1)) {
       if (d >= from) dates.push(d);
     }
@@ -725,12 +727,12 @@ function removeCalendarEvent_(b) {
 
 /**
  * Two-way reconcile between the Bookings sheet and the venue calendar.
- * Runs hourly (trigger) and from the admin panel. Also applies status edits
+ * Runs every 15 minutes (trigger) and from the admin panel. Also applies status edits
  * the admin made directly in the sheet.
  */
 function syncCalendar() {
   const cal = venueCalendar_();
-  if (!cal) return { created: 0, moved: 0, cancelled: 0, removed: 0 };
+  if (!cal) throw fail_('Calendar is unavailable. Run setup from the owner Google account.', 'CONFIG');
   let created = 0, moved = 0, cancelled = 0, removed = 0;
   const from = addDays_(today_(), -7);
   withLock_(() => {
@@ -772,6 +774,7 @@ function syncCalendar() {
     });
   });
   invalidateAvailability_();
+  PropertiesService.getScriptProperties().setProperty('last-calendar-sync', new Date().toISOString());
   return { created, moved, cancelled, removed };
 }
 
@@ -1201,8 +1204,11 @@ function setup() {
   }
   secret_();
 
-  const hasTrigger = ScriptApp.getProjectTriggers().some((t) => t.getHandlerFunction() === 'syncCalendar');
-  if (!hasTrigger) ScriptApp.newTrigger('syncCalendar').timeBased().everyHours(1).create();
+  // Replace only our triggers: upgrades cannot leave duplicate scheduled jobs.
+  ScriptApp.getProjectTriggers().filter((t) => ['syncCalendar', 'monthlyReportJob'].includes(t.getHandlerFunction())).forEach((t) => ScriptApp.deleteTrigger(t));
+  ScriptApp.newTrigger('syncCalendar').timeBased().everyMinutes(15).create();
+  ScriptApp.newTrigger('monthlyReportJob').timeBased().everyDays(1).atHour(6).inTimezone(TZ).create();
+  reportFolder_();
 
   log_(owner, 'Setup completed', 'Version ' + VERSION);
   invalidateAvailability_();
@@ -1214,4 +1220,92 @@ function onOpen() {
     .addItem('Set up / repair', 'setup')
     .addItem('Sync with Google Calendar now', 'syncCalendar')
     .addToUi();
+}
+
+
+/* Private monthly archives. No public sharing or third-party PDF service. */
+function automationStatus_() {
+  const p = PropertiesService.getScriptProperties();
+  const handlers = ScriptApp.getProjectTriggers().map((t) => t.getHandlerFunction());
+  return {
+    calendarScheduled: handlers.includes('syncCalendar'),
+    reportsScheduled: handlers.includes('monthlyReportJob'),
+    lastSync: p.getProperty('last-calendar-sync') || '',
+    lastReport: p.getProperty('last-monthly-report') || '',
+    reportsFolder: p.getProperty('reports-folder') ? 'https://drive.google.com/drive/folders/' + p.getProperty('reports-folder') : '',
+  };
+}
+
+function reportFolder_() {
+  const p = PropertiesService.getScriptProperties();
+  const id = p.getProperty('reports-folder');
+  if (id) {
+    const folder = DriveApp.getFolderById(id);
+    if (folder.isTrashed()) throw new Error('Restore the monthly reports folder from Drive trash.');
+    return folder;
+  }
+  const folder = DriveApp.createFolder('Park Inn Monthly Reports');
+  p.setProperty('reports-folder', folder.getId());
+  return folder;
+}
+
+function reportMonth_(month) {
+  if (typeof month !== 'string' || !/^20\d{2}-(0[1-9]|1[0-2])$/.test(month)) {
+    throw fail_('Choose a valid month (YYYY-MM).', 'INVALID');
+  }
+  if (month > today_().slice(0, 7)) throw fail_('Choose the current month or an earlier month.', 'INVALID');
+  return month;
+}
+
+function apiMonthlyReport_(req) {
+  const admin = requireAdmin_(req, 'super_admin');
+  return withLock_(() => createMonthlyReport_(reportMonth_(req.month), admin.email));
+}
+
+function monthlyReportJob() {
+  // Daily retry, monthly output: a failed first-of-month run is retried tomorrow.
+  return withLock_(() => {
+    const month = addDays_(today_().slice(0, 7) + '-01', -1).slice(0, 7);
+    const p = PropertiesService.getScriptProperties();
+    if (p.getProperty('monthly-report-complete') === month) return { skipped: true, month };
+    const result = createMonthlyReport_(month, 'Scheduled report');
+    p.setProperty('monthly-report-complete', month);
+    return result;
+  });
+}
+
+function createMonthlyReport_(month, actor) {
+  const rows = readTable_('Bookings').filter((b) => b.date.slice(0, 7) === month)
+    .sort((a, b) => a.date.localeCompare(b.date) || a.id.localeCompare(b.id));
+  const money = readTable_('Money').filter((m) => m.date.slice(0, 7) === month);
+  const total = (type) => money.filter((m) => m.type === type).reduce((sum, m) => sum + Number(m.amount || 0), 0);
+  const income = total('income'), expense = total('expense');
+  const currency = (v) => 'INR ' + Number(v || 0).toFixed(2);
+  const cell = (v) => '<td>' + esc_(String(v == null ? '' : v)) + '</td>';
+  const table = (headers, body) => '<table><thead><tr>' + headers.map((h) => '<th>' + esc_(h) + '</th>').join('') + '</tr></thead><tbody>' + body + '</tbody></table>';
+  const html = '<!doctype html><html><head><meta charset="utf-8"><style>' +
+    '@page{size:A4 landscape;margin:16mm}body{font:11px Arial;color:#182d2a}h1{font-size:24px}table{border-collapse:collapse;width:100%;margin:16px 0;table-layout:fixed}th,td{padding:7px;border:1px solid #ccd7d3;text-align:left;overflow-wrap:anywhere}th{background:#eaf1ed}tr{page-break-inside:avoid}thead{display:table-header-group}' +
+    '</style></head><body><h1>' + esc_(settings_().venueName || 'Park Inn') + '</h1><h2>Monthly booking report: ' + month + '</h2>' +
+    '<p>Private owner archive · Event dates in Asia/Kolkata · Generated ' + esc_(new Date().toISOString()) + '</p>' +
+    '<p>Bookings: ' + rows.length + ' | Confirmed: ' + rows.filter((b) => b.status === 'confirmed').length +
+    ' | Recorded income: ' + currency(income) + ' | Expenses: ' + currency(expense) + ' | Net cash flow: ' + currency(income - expense) + '</p>' +
+    '<p>Bookings are grouped by event date; money is grouped by transaction date. Booking amounts are quoted values, not payments received. All booking statuses are included.</p>' +
+    table(['ID / Date', 'Customer / Contact', 'Event / Slot', 'Guests', 'Status', 'Quoted amount', 'Notes'], rows.map((b) => '<tr>' +
+      [b.id + ' / ' + b.date, b.name + ' / ' + b.mobile + ' / ' + b.email, (EVENT_TYPES[b.eventType] || b.eventType) + ' / ' + (SLOTS[b.slot] || {}).label,
+       b.guests, b.status, currency(b.amount), [b.notes, b.adminNote].filter(Boolean).join(' | ')].map(cell).join('') + '</tr>').join('')) +
+    (!rows.length ? '<p>No bookings in this month.</p>' : '') + '<h2>Income and expenses</h2>' +
+    table(['Date', 'Type', 'Category', 'Amount', 'Booking ID', 'Description'], money.map((m) => '<tr>' +
+      [m.date, m.type, m.category, currency(m.amount), m.bookingId, m.description].map(cell).join('') + '</tr>').join('')) + '</body></html>';
+  const name = 'Park-Inn-Bookings-' + month + '.pdf';
+  const folder = reportFolder_();
+  const previous = folder.getFilesByName(name);
+  const oldFiles = [];
+  while (previous.hasNext()) oldFiles.push(previous.next());
+  // Convert and save successfully before replacing the old archive.
+  const blob = Utilities.newBlob(html, 'text/html', 'report.html').getAs('application/pdf').setName(name);
+  const file = folder.createFile(blob);
+  oldFiles.forEach((old) => old.setTrashed(true));
+  PropertiesService.getScriptProperties().setProperty('last-monthly-report', month);
+  log_(actor, 'Monthly PDF exported', month + ' · ' + rows.length + ' bookings');
+  return { month, url: file.getUrl(), bookings: rows.length };
 }

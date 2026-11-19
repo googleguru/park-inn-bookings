@@ -245,12 +245,17 @@ function createGasContext(opts = {}) {
   const triggers = [];
   const ScriptApp = {
     getProjectTriggers: () => triggers.slice(),
+    deleteTrigger(t) { triggers.splice(triggers.indexOf(t), 1); },
     newTrigger(fn) {
       const t = { fn, hours: null };
       const b = {
         timeBased() { return b; },
         everyHours(n) { t.hours = n; return b; },
-        create() { const tr = { getHandlerFunction: () => fn, hours: t.hours }; triggers.push(tr); return tr; },
+        everyMinutes(n) { t.minutes = n; return b; },
+        everyDays(n) { t.days = n; return b; },
+        atHour(n) { t.atHour = n; return b; },
+        inTimezone(tz) { t.timeZone = tz; return b; },
+        create() { const tr = { getHandlerFunction: () => fn, ...t }; triggers.push(tr); return tr; },
       };
       return b;
     },
@@ -272,7 +277,7 @@ function createGasContext(opts = {}) {
     computeHmacSha256Signature: (value, key) => signed(crypto.createHmac('sha256', toBuf(key)).update(toBuf(value)).digest()),
     base64EncodeWebSafe: (x) => toBuf(x).toString('base64').replace(/\+/g, '-').replace(/\//g, '_'),
     base64DecodeWebSafe: (s) => signed(Buffer.from(String(s).replace(/-/g, '+').replace(/_/g, '/'), 'base64')),
-    newBlob: (bytes) => ({ getDataAsString: () => toBuf(bytes).toString('utf8') }),
+    newBlob: (bytes) => ({ getDataAsString: () => toBuf(bytes).toString('utf8'), getAs: (mime) => ({ html: bytes, mime, setName(name) { this.name = name; return this; } }) }),
     formatDate(date, tz, pattern) {
       const dt = new RealDate(+date);
       const p = {};
@@ -285,10 +290,23 @@ function createGasContext(opts = {}) {
     },
   };
 
+  const driveFiles = [];
+  const folders = new Map();
+  const DriveApp = {
+    getFolderById(id) { if (!folders.has(id)) throw new Error('Folder missing'); return folders.get(id); },
+    createFolder(name) {
+      const id = crypto.randomUUID();
+      const folder = { getId: () => id, isTrashed: () => false,
+        getFilesByName(name) { const matches = driveFiles.filter(f => f.name === name && !f.trashed); return { hasNext: () => matches.length > 0, next: () => matches.shift() }; },
+        createFile(blob) { const file = { ...blob, trashed: false, getUrl: () => 'https://drive.google.com/file/d/' + crypto.randomUUID(), setTrashed(v) { this.trashed = v; } }; driveFiles.push(file); return file; },
+      };
+      folders.set(id, folder); return folder;
+    },
+  };
   /* ---------------- load Code.gs ---------------- */
   const sandbox = {
     Date: FakeDate, console: fakeConsole, SpreadsheetApp, CalendarApp, PropertiesService, CacheService,
-    LockService, MailApp, Session, ScriptApp, ContentService, Utilities,
+    LockService, MailApp, Session, ScriptApp, ContentService, Utilities, DriveApp,
   };
   const context = vm.createContext(sandbox);
   vm.runInContext(fs.readFileSync(CODE_PATH, 'utf8'), context, { filename: 'Code.gs' });
@@ -318,7 +336,7 @@ function createGasContext(opts = {}) {
   const cal = () => calHelpers.get();
 
   return {
-    context, clock, outbox, mail, logs, props, cacheStore, triggers, menus, lockState,
+    context, driveFiles, clock, outbox, mail, logs, props, cacheStore, triggers, menus, lockState,
     calendar: calHelpers,
     sheets: {
       get: (n) => spreadsheet.getSheetByName(n),

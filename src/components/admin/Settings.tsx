@@ -67,6 +67,9 @@ export function Settings() {
   const { data, isLoading } = useAdminData();
   const action = useAdminAction<{ imported: number; skipped: string[] }>();
   const { isSuper, adminUser } = useAdmin();
+  const reportAction = useAdminAction<{ url: string; month: string }>();
+  const [reportMonth, setReportMonth] = useState(() => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata', year: 'numeric', month: '2-digit' }).format(new Date()).slice(0, 7));
+  const [reportUrl, setReportUrl] = useState('');
   const { toast } = useToast();
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -210,7 +213,27 @@ export function Settings() {
           >
             <RefreshCw size={14} className={cn(action.isPending && 'animate-spin')} /> Sync with Google Calendar now
           </Button>
-          <p className="mt-1 text-center text-xs text-muted-foreground">It also syncs automatically every hour.</p>
+          <p className="mt-1 text-center text-xs text-muted-foreground">{data.automation?.calendarScheduled ? 'Automatic sync is installed. Updated setup checks every 15 minutes.' : 'Run the updated setup in Apps Script to install automatic sync.'}</p>
+        </Panel>
+
+        <Panel title="Monthly PDF archive" icon={ScrollText}>
+          <p className="text-sm text-muted-foreground">A private PDF of the previous month is saved in the owner's Google Drive. The daily job retries missed runs. Reports include booking details, statuses, income and expenses.</p>
+          <p className="mt-3 text-sm font-medium">{data.automation?.reportsScheduled ? 'Automatic monthly reports are installed' : 'Activation needed: run the updated Apps Script setup'}</p>
+          <p className="mt-2 text-sm text-muted-foreground">Last archived month: {data.automation?.lastReport || 'None yet'}</p>
+          {data.automation?.lastSync && <p className="mt-2 text-sm text-muted-foreground">Last calendar sync: {formatDateTime(data.automation.lastSync)}</p>}
+          {data.automation?.reportsFolder && <Button asChild variant="outline" className="mt-3"><a href={data.automation.reportsFolder} target="_blank" rel="noreferrer">Open private report folder <ExternalLink size={14} className="ml-2" /></a></Button>}
+          {isSuper && <form className="mt-4 space-y-3" onSubmit={async (e) => {
+            e.preventDefault(); setReportUrl('');
+            try {
+              const result = await reportAction.mutateAsync({ action: 'monthlyReport', payload: { month: reportMonth } });
+              setReportUrl(result.url); toast({ title: 'PDF saved to Google Drive' });
+            } catch (err) { toast({ title: 'Could not export PDF', description: (err as Error).message, variant: 'destructive' }); }
+          }}>
+            <label className="block text-sm font-medium">Report month<Input type="month" required min="2000-01" value={reportMonth} onChange={(e) => { setReportMonth(e.target.value); setReportUrl(''); }} /></label>
+            <Button disabled={reportAction.isPending || !data.automation}>{reportAction.isPending ? 'Generating PDF…' : 'Generate monthly PDF'}</Button>
+            {reportUrl && <p role="status"><a className="text-primary underline" href={reportUrl} target="_blank" rel="noreferrer">Open generated PDF</a></p>}
+          </form>}
+          <p className="mt-3 text-sm text-muted-foreground">Google account access is required to open files. Regenerating a month replaces its previous PDF. Free Google storage and service quotas apply.</p>
         </Panel>
 
         {/* Admins */}
