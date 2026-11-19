@@ -37,7 +37,7 @@ jobs:
         run: npm run build
         env:
           # Google Apps Script web-app URL (Settings → Secrets and variables → Actions → Variables).
-          VITE_BOOKING_API_URL: ${{ vars.BOOKING_API_URL }}
+          VITE_BOOKING_API_URL: ${{ vars.BOOKING_API_URL || 'https://script.google.com/macros/s/AKfycbzUKmoJGcmVhgbVdaf4e5bN65BvAFUbCojoqnknnKqzm5YfwBnbsk2Fn6x9m4jNfaXM/exec' }}
 
       - uses: actions/configure-pages@v4
 
