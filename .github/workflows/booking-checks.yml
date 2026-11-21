@@ -23,6 +23,7 @@ jobs:
       - run: npm run build
       - name: Exercise an approved customer booking in Chrome
         env:
+          TZ: Asia/Kolkata
           DEV_OUTBOX: '1'
           VITE_BOOKING_API_URL: http://127.0.0.1:8787/exec
         run: |
@@ -56,5 +57,5 @@ jobs:
           "$browser" find role button click --name 'Submit Booking Request'
           "$browser" wait --text 'Booking request sent for'
           "$browser" open "${url}#/profile"
-          "$browser" wait --text 'Waiting for admin approval'
+          "$browser" wait --text 'Wedding · Full day · 50 guests'
           "$browser" close
