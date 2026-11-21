@@ -330,14 +330,18 @@
   color: hsl(var(--muted-foreground));
 }
 
-/* The <picture> wrapping the hero photo must not become the grid item itself,
-   or the img inside it stops filling the column. display: contents hands the
-   grid slot straight to the img. */
+/* The <picture> is the hero grid item; the img fills it.
+   NOT display: contents — that promotes the <source> elements into the grid
+   too (they compute to display: block and take real cells), which turns the
+   hero into a two-row grid roughly twice its proper height. */
 .venue-hero picture {
-  display: contents;
+  display: block;
+  min-height: 0;
+  height: 100%;
 }
 
 .venue-photo {
+  display: block;
   width: 100%;
   height: 100%;
   min-height: 0;
@@ -768,7 +772,8 @@
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .venue-photo {
+  /* The picture carries the height now; the img fills it. */
+  .venue-hero picture {
     height: clamp(13rem, 52vw, 23rem);
   }
 }
