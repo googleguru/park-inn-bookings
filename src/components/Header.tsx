@@ -39,12 +39,12 @@ const Header = () => {
 
   const scrollToSection = (id: string) => {
     const element = document.getElementById(id);
-    element?.scrollIntoView({ behavior: "smooth" });
+    element?.scrollIntoView({ behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
     setIsMenuOpen(false);
   };
 
   // Over the dark hero photo the nav needs light text until it gains its glass background.
-  const onHero = !scrolled && !isMenuOpen;
+  const onHero = !isMenuOpen;
 
   const AuthButton = ({ mobile = false }: { mobile?: boolean }) => {
     if (loading || !isApiConfigured) return null;
@@ -95,29 +95,29 @@ const Header = () => {
   };
 
   return (
-    <header className="fixed inset-x-0 top-0 z-50 flex justify-center px-3 pt-3 md:pt-4">
+    <header className="sticky top-0 z-50 flex justify-center bg-[#18382f] px-3">
       <motion.div
-        initial={{ y: -24, opacity: 0 }}
+        initial={false}
         animate={{ y: 0, opacity: 1 }}
         transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
         className={cn(
           "w-full transition-[max-width,background-color,box-shadow,border-color,padding] duration-500 ease-out",
           "rounded-2xl border",
-          scrolled || isMenuOpen
-            ? "max-w-5xl bg-background/75 backdrop-blur-xl border-border/70 shadow-soft px-4 py-2.5"
-            : "max-w-7xl bg-transparent border-transparent px-4 py-4"
+          isMenuOpen
+            ? "max-w-5xl bg-background backdrop-blur-xl border-border/70 shadow-soft px-4 py-2.5"
+            : scrolled ? "max-w-7xl border-transparent px-4 py-2" : "max-w-7xl border-transparent px-4 py-3"
         )}
       >
         <div className="flex items-center justify-between gap-4">
           <button onClick={() => scrollToSection("home")} className="flex flex-col text-left">
-            <h1
+            <span
               className={cn(
-                "text-xl md:text-2xl font-semibold tracking-tight transition-colors",
+                "font-serif text-xl md:text-2xl font-semibold tracking-tight transition-colors",
                 onHero ? "text-white" : "text-foreground"
               )}
             >
               Dhanlakshmi <span className={cn("italic transition-colors", onHero ? "text-gold" : "text-primary")}>Park Inn</span>
-            </h1>
+            </span>
             <p
               className={cn(
                 "hidden sm:block text-[11px] tracking-wide transition-colors",

@@ -10,11 +10,14 @@ const Index = () => {
   const [visitDate, setVisitDate] = useState<Date>();
   return (
     <div className="min-h-screen bg-background">
+      <button className="venue-skip" onClick={() => document.getElementById("booking-main")?.focus()}>Skip to main content</button>
       <Header />
+      <main id="booking-main" tabIndex={-1}>
       <Hero onDate={d => { setVisitDate(d); document.getElementById("calendar")?.scrollIntoView({ block: "start" }); }} />
       <BookingCalendar visitDate={visitDate} />
       <About />
       <Contact />
+      </main>
       <Footer />
     </div>
   );
