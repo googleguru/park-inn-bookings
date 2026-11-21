@@ -1,6 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { api, ApiError, isApiConfigured, type AccessStatus, type CustomerProfile } from '@/lib/api';
-import { toast } from 'sonner';
 import SignInDialog from '@/components/SignInDialog';
 
 export type { AccessStatus };
@@ -36,12 +35,13 @@ export function ClientAuthProvider({ children }: { children: React.ReactNode }) 
   }, []);
 
   const signOut = useCallback(async () => {
-    try {
-      if (token) await api('logout', {}, token);
-      clearSession();
-    } catch {
-      toast.error('Could not sign out. Check your connection and try again.');
-    }
+    const current = token;
+    // Clear locally first and unconditionally. Revoking the token on the server
+    // is best-effort: if that request fails (offline, flaky connection), the
+    // person must still end up signed out on this device rather than being left
+    // signed in with a live session — this is the same order AdminContext uses.
+    clearSession();
+    if (current) await api('logout', {}, current).catch(() => undefined);
   }, [token, clearSession]);
 
   const refresh = useCallback(async () => {
