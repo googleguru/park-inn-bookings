@@ -58,4 +58,11 @@ jobs:
           "$browser" wait --text 'Booking request sent for'
           "$browser" open "${url}#/profile"
           "$browser" wait --text 'Wedding · Full day · 50 guests'
+          "$browser" open "${url}#/admin"
+          "$browser" fill '#signin-email' owner@example.com
+          "$browser" find role button click --name 'Send code'
+          "$browser" wait '[aria-label="6-digit code"]'
+          staff_code=$(curl -fsS http://127.0.0.1:8787/dev/outbox | jq -er '[.[] | select(.to=="owner@example.com") | .subject | match("^[0-9]{6}").string] | last')
+          "$browser" fill '[aria-label="6-digit code"]' "$staff_code"
+          "$browser" wait --url '**/#/admin/dashboard'
           "$browser" close
