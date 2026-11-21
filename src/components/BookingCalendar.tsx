@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import { CheckCircle, Lock, Clock, Hourglass, Loader2, Phone, ShieldCheck, ShieldX } from "lucide-react";
@@ -23,6 +23,7 @@ const BookingCalendar = ({ visitDate }: { visitDate?: Date }) => {
   const [date, setDate] = useState<Date | undefined>(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [showBookingModal, setShowBookingModal] = useState(false);
+  const accessDialog = useRef<HTMLDialogElement>(null);
   const [showAccessPrompt, setShowAccessPrompt] = useState(false);
   const [wantsToBook, setWantsToBook] = useState(false);
   const [bookedDates, setBookedDates] = useState<Record<string, DateStatus>>({});
@@ -32,6 +33,11 @@ const BookingCalendar = ({ visitDate }: { visitDate?: Date }) => {
   const [requesting, setRequesting] = useState(false);
 
   useEffect(() => { if (visitDate) { setDate(visitDate); setMonth(visitDate); } }, [visitDate]);
+
+  useEffect(() => {
+    const dialog = accessDialog.current;
+    if (showAccessPrompt && customer && dialog && !dialog.open) dialog.showModal();
+  }, [showAccessPrompt, customer]);
 
   const fetchAvailability = useCallback(async () => {
     try {
@@ -46,12 +52,15 @@ const BookingCalendar = ({ visitDate }: { visitDate?: Date }) => {
 
   useEffect(() => {
     if (!isApiConfigured) return;
-    api<SystemStatus>("status")
-      .then(setStatus)
-      .catch((err) => console.error("Booking system unreachable:", err))
-      .finally(() => setStatusLoaded(true));
-    fetchAvailability();
-    const id = window.setInterval(fetchAvailability, 60_000);
+    const refresh = () => {
+      api<SystemStatus>("status")
+        .then(setStatus)
+        .catch(() => setStatus(null))
+        .finally(() => setStatusLoaded(true));
+      void fetchAvailability();
+    };
+    refresh();
+    const id = window.setInterval(refresh, 60_000);
     return () => window.clearInterval(id);
   }, [fetchAvailability]);
 
@@ -169,7 +178,8 @@ const BookingCalendar = ({ visitDate }: { visitDate?: Date }) => {
                 mode="single"
                 month={month} onMonthChange={setMonth}
                 selected={date}
-                onSelect={(d) => {
+                onDayClick={(d, modifiers) => {
+                  if (modifiers.disabled) return;
                   setDate(d);
                   handleDateClick(d);
                 }}
@@ -184,18 +194,14 @@ const BookingCalendar = ({ visitDate }: { visitDate?: Date }) => {
       </div>
 
       {/* Approval gate */}
-      {showAccessPrompt && customer && (
-        <div
-          role="dialog"
-          aria-modal="true"
+      {customer && (
+        <dialog
+          ref={accessDialog}
           aria-labelledby="access-title"
-          className="fixed inset-0 z-50 flex items-center justify-center bg-secondary/40 p-4 backdrop-blur-sm"
-          onClick={() => setShowAccessPrompt(false)}
+          aria-describedby="access-description"
+          className="fixed inset-0 m-auto max-h-[90dvh] w-[calc(100%-2rem)] max-w-sm overflow-y-auto rounded-3xl border bg-card p-7 text-center text-card-foreground shadow-elegant backdrop:bg-secondary/40 backdrop:backdrop-blur-sm"
+          onClose={() => setShowAccessPrompt(false)}
         >
-          <Card
-            className="relative w-full max-w-sm overflow-hidden rounded-3xl p-7 text-center shadow-elegant animate-in fade-in zoom-in-95 duration-300"
-            onClick={(e) => e.stopPropagation()}
-          >
             <BorderBeam size={80} duration={8} colorFrom="hsl(var(--gold))" colorTo="hsl(var(--primary))" />
             <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-accent">
               {access === "pending" ? <Hourglass className="h-6 w-6 text-primary" />
@@ -207,7 +213,7 @@ const BookingCalendar = ({ visitDate }: { visitDate?: Date }) => {
                 : access === "rejected" || access === "blocked" ? "Request not approved"
                 : "Request booking access"}
             </h3>
-            <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+            <p id="access-description" className="mt-2 text-sm leading-relaxed text-muted-foreground">
               {access === "pending"
                 ? "Thanks! An admin is reviewing your account. We'll email you as soon as you can book."
                 : access === "rejected" || access === "blocked"
@@ -250,11 +256,10 @@ const BookingCalendar = ({ visitDate }: { visitDate?: Date }) => {
                 <a href="tel:+919841414699">Call 098414 14699</a>
               </Button>
             ) : null}
-            <Button variant="ghost" className="mt-2 w-full rounded-full" onClick={() => setShowAccessPrompt(false)}>
+            <Button variant="ghost" className="mt-2 w-full rounded-full" onClick={() => accessDialog.current?.close()}>
               Close
             </Button>
-          </Card>
-        </div>
+        </dialog>
       )}
 
       <BookingModal

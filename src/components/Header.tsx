@@ -53,6 +53,7 @@ const Header = () => {
         <div className={`flex items-center gap-2 ${mobile ? "py-2" : ""}`}>
           <Link
             to="/profile"
+            aria-label="My profile and bookings"
             className={cn(
               "flex items-center gap-2 transition-opacity hover:opacity-80",
               onHero && !mobile ? "text-white" : "text-foreground"

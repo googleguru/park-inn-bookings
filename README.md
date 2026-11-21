@@ -35,20 +35,27 @@ A modern event venue booking platform for Dhanlakshmi Park Inn, allowing custome
 ### Installation
 
 ```sh
-git clone <YOUR_GIT_URL>
+git clone https://github.com/googleguru/park-inn-bookings.git
 cd park-inn-bookings
-npm install
+npm ci
 ```
 
 ### Development
 
-Run the website against a local simulation of the Google backend:
+Run the simulator in one terminal:
 
 ```sh
-DEV_OUTBOX=1 OWNER_EMAIL=you@example.com node google-apps-script/dev/server.cjs 8787   # simulated Sheet/Calendar/Gmail
+DEV_OUTBOX=1 OWNER_EMAIL=you@example.com node google-apps-script/dev/server.cjs 8787
+```
+
+In a second terminal, seed optional demo bookings and start the website:
+
+```sh
 curl -X POST 127.0.0.1:8787/dev/seed                                        # optional demo data
 VITE_BOOKING_API_URL=http://127.0.0.1:8787/exec npm run dev
 ```
+
+Open `http://localhost:8080/park-inn-bookings/`. With demo data, sign in as `priya.sharma@example.com` to try an approved customer booking.
 
 The simulator listens on IPv4 loopback and accepts the local frontend on port 8080. With `DEV_OUTBOX=1`, simulated sign-in emails appear at `http://127.0.0.1:8787/dev/outbox`.
 
