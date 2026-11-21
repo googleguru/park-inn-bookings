@@ -68,12 +68,12 @@ const Contact = () => {
   ];
 
   return (
-    <section id="contact" className="py-24 md:py-32">
+    <section id="contact" tabIndex={-1} className="reveal py-[var(--section-pad)]">
       <div className="container mx-auto px-4">
         <div className="text-center mb-14">
-          <p className="mb-4 text-xs font-semibold uppercase tracking-[0.25em] text-primary">Contact</p>
-          <h2 className="text-4xl md:text-5xl font-semibold mb-4">Get In Touch</h2>
-          <p className="text-lg text-muted-foreground">
+          <p className="mb-4 text-xs font-semibold uppercase tracking-[0.25em] text-gold-ink">Contact</p>
+          <h2 className="text-fluid-h2 font-semibold mb-4">Get In Touch</h2>
+          <p className="text-fluid-body text-muted-foreground">
             Got questions? We're just a call away.
           </p>
         </div>

@@ -119,19 +119,19 @@ const BookingCalendar = ({ visitDate }: { visitDate?: Date }) => {
   };
 
   const modifiersStyles = {
-    booked: { backgroundColor: "hsl(var(--destructive))", color: "white", fontWeight: "bold" },
+    booked: { backgroundColor: "hsl(var(--destructive))", color: "hsl(var(--destructive-foreground))", fontWeight: "bold" },
     pending: { backgroundColor: "hsl(var(--warning))", color: "hsl(var(--warning-foreground))", fontWeight: "bold" },
-    available: { backgroundColor: "hsl(var(--success) / 0.1)", color: "hsl(152 48% 26%)", fontWeight: "500" },
+    available: { backgroundColor: "hsl(var(--success) / 0.12)", color: "hsl(var(--success))", fontWeight: "500" },
   };
 
   const access = customer?.access;
 
   return (
-    <section id="calendar" className="venue-calendar">
+    <section id="calendar" tabIndex={-1} className="venue-calendar reveal">
       <div className="venue-calendar-grid">
         <div className="min-w-0">
-          <h2 className="text-4xl md:text-5xl font-semibold mb-4">Booking Calendar</h2>
-          <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+          <h2 className="text-fluid-h2 font-semibold mb-4">Booking Calendar</h2>
+          <p className="text-fluid-body text-muted-foreground max-w-[60ch]">
             Select an available date to book your event at Dhanlakshmi Park Inn
           </p>
           {statusLoaded && !bookingOpen && (

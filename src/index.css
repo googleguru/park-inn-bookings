@@ -1,163 +1,785 @@
-@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Inter:wght@300;400;500;600;700&display=swap');
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
-All colors MUST be HSL.
-*/
+/* ===========================================================================
+   Dhanlakshmi Park Inn — design system
+   ---------------------------------------------------------------------------
+   One palette, defined once, in HSL channel triplets so Tailwind can wrap them
+   in hsl(). Dark mode switches the triplets on :root via prefers-color-scheme,
+   which is the documented pattern for browsers without light-dark(); nothing
+   outside this file names a colour.
+   Every text pair here is >= 4.5:1 and every UI boundary >= 3:1.
+   =========================================================================== */
 
 @layer base {
   :root {
-    --background: 40 33% 98%;
-    --foreground: 24 14% 10%;
+    /* ---- raw palette: deep green, gold, cream ---------------------------- */
+    --brand-green-950: 163 40% 8%;
+    --brand-green-900: 163 40% 14%;
+    --brand-green-850: 163 40% 16%;
+    --brand-green-800: 163 38% 22%;
+    --brand-green-700: 163 30% 32%;
+    --brand-green-600: 163 24% 42%;
+    --brand-green-500: 163 14% 46%;
+
+    --brand-gold-200: 42 64% 77%;
+    --brand-gold-300: 42 60% 72%;
+    --brand-gold-500: 38 55% 48%;
+    --brand-gold-700: 36 62% 32%;
+
+    --brand-cream-50: 44 40% 97%;
+    --brand-cream-100: 45 30% 94%;
+    --brand-cream-200: 42 24% 88%;
+
+    /* ---- semantic tokens: light ------------------------------------------ */
+    --background: var(--brand-cream-50);
+    --foreground: 163 25% 12%;
 
     --card: 0 0% 100%;
-    --card-foreground: 24 14% 10%;
+    --card-foreground: 163 25% 12%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 24 14% 10%;
+    --popover-foreground: 163 25% 12%;
 
-    --primary: 34 60% 38%;
-    --primary-foreground: 40 40% 98%;
+    --primary: var(--brand-green-800);
+    --primary-foreground: var(--brand-cream-50);
 
-    --secondary: 24 14% 10%;
-    --secondary-foreground: 40 33% 96%;
+    --secondary: var(--brand-green-900);
+    --secondary-foreground: var(--brand-cream-50);
 
-    --muted: 38 25% 94%;
-    --muted-foreground: 28 9% 40%;
+    --muted: var(--brand-cream-100);
+    --muted-foreground: 163 12% 34%;
 
-    --accent: 40 60% 88%;
-    --accent-foreground: 24 14% 10%;
+    --accent: 42 55% 88%;
+    --accent-foreground: 163 30% 16%;
 
-    --destructive: 0 72% 51%;
+    --destructive: 0 62% 42%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 36 20% 88%;
-    --input: 36 20% 86%;
-    --ring: 34 60% 38%;
-
-    --success: 142 71% 45%;
+    --success: 152 45% 32%;
     --success-foreground: 0 0% 100%;
 
-    --warning: 45 93% 58%;
-    --warning-foreground: 30 15% 15%;
+    --warning: 32 75% 38%;
+    --warning-foreground: 0 0% 100%;
 
-    --gold: 40 62% 62%;
+    /* Gold is a light tint, unreadable as text on cream. --gold stays the
+       decorative fill; --gold-ink is the readable text/icon variant. */
+    --gold: var(--brand-gold-500);
+    --gold-ink: var(--brand-gold-700);
 
-    --gradient-primary: linear-gradient(135deg, hsl(34 60% 38%), hsl(40 62% 62%));
-    --gradient-hero: linear-gradient(180deg, hsl(24 14% 6% / 0.35), hsl(24 14% 6% / 0.85));
+    /* Decorative rules may stay soft; --input draws a control boundary and is
+       held at >= 3:1 (WCAG 1.4.11). */
+    --border: 44 18% 84%;
+    --input: 44 16% 50%;
+    --ring: var(--brand-green-800);
 
-    --shadow-elegant: 0 24px 48px -24px hsl(34 60% 30% / 0.35);
-    --shadow-soft: 0 1px 2px hsl(24 14% 10% / 0.04), 0 8px 24px -12px hsl(24 14% 10% / 0.12);
+    --scrollbar-track: var(--brand-cream-100);
+    --scrollbar-thumb: 163 12% 52%;
 
     --radius: 0.75rem;
 
-    --sidebar-background: 0 0% 98%;
+    /* Fluid type. Minimum and maximum are both font-relative and the maximum
+       is never more than 2.5x the minimum, so browser zoom still reaches 200%
+       (WCAG 1.4.4). */
+    --step-display: clamp(2.75rem, 1.6rem + 5.2vw, 5.5rem);
+    --step-h2: clamp(2rem, 1.4rem + 2.6vw, 3.25rem);
+    --step-h3: clamp(1.25rem, 1.1rem + 0.6vw, 1.5rem);
+    --step-body: clamp(1rem, 0.97rem + 0.15vw, 1.125rem);
+    --step-small: clamp(0.8125rem, 0.8rem + 0.1vw, 0.875rem);
 
-    --sidebar-foreground: 240 5.3% 26.1%;
+    --section-pad: clamp(2.5rem, 6vw, 6rem);
+    --gutter: clamp(1rem, 5vw, 4rem);
 
-    --sidebar-primary: 240 5.9% 10%;
+    --shadow-elegant: 0 24px 48px -24px hsl(var(--brand-green-950) / 0.35);
+    --shadow-soft: 0 1px 2px hsl(var(--brand-green-950) / 0.06),
+      0 8px 24px -12px hsl(var(--brand-green-950) / 0.14);
+    --gradient-primary: linear-gradient(135deg, hsl(var(--brand-green-800)), hsl(var(--brand-gold-500)));
+    --gradient-hero: linear-gradient(180deg, hsl(var(--brand-green-950) / 0.35), hsl(var(--brand-green-950) / 0.85));
 
-    --sidebar-primary-foreground: 0 0% 98%;
+    --sidebar-background: var(--brand-cream-50);
+    --sidebar-foreground: 163 25% 12%;
+    --sidebar-primary: var(--brand-green-800);
+    --sidebar-primary-foreground: var(--brand-cream-50);
+    --sidebar-accent: var(--brand-cream-100);
+    --sidebar-accent-foreground: 163 30% 16%;
+    --sidebar-border: 44 18% 84%;
+    --sidebar-ring: var(--brand-green-800);
 
-    --sidebar-accent: 240 4.8% 95.9%;
+    /* Tell the browser both schemes are supported so scrollbars, form controls
+       and the initial canvas are themed by the UA rather than forced light. */
+    color-scheme: light dark;
+    accent-color: hsl(var(--primary));
+    scrollbar-color: hsl(var(--scrollbar-thumb)) hsl(var(--scrollbar-track));
 
-    --sidebar-accent-foreground: 240 5.9% 10%;
-
-    --sidebar-border: 220 13% 91%;
-
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    /* Lets the mobile menu transition to its intrinsic height without JS. */
+    interpolate-size: allow-keywords;
   }
 
-  .dark {
-    --background: 30 20% 8%;
-    --foreground: 40 20% 95%;
+  /* ---- semantic tokens: dark --------------------------------------------- */
+  /* Switching the triplets on :root keeps one source of truth; Tailwind's
+     dark: variants are set to 'media' so utilities agree with these tokens. */
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --background: var(--brand-green-950);
+      --foreground: var(--brand-cream-100);
 
-    --card: 30 15% 12%;
-    --card-foreground: 40 20% 95%;
+      --card: 163 24% 12%;
+      --card-foreground: var(--brand-cream-100);
 
-    --popover: 30 15% 12%;
-    --popover-foreground: 40 20% 95%;
+      --popover: 163 24% 12%;
+      --popover-foreground: var(--brand-cream-100);
 
-    --primary: 38 92% 50%;
-    --primary-foreground: 30 15% 15%;
+      --primary: var(--brand-gold-200);
+      --primary-foreground: var(--brand-green-900);
 
-    --secondary: 195 70% 35%;
-    --secondary-foreground: 0 0% 100%;
+      --secondary: 163 24% 12%;
+      --secondary-foreground: var(--brand-cream-100);
 
-    --muted: 30 15% 18%;
-    --muted-foreground: 40 10% 60%;
+      --muted: 163 18% 18%;
+      --muted-foreground: 44 12% 68%;
 
-    --accent: 42 95% 65%;
-    --accent-foreground: 30 15% 15%;
+      --accent: 163 24% 20%;
+      --accent-foreground: 42 64% 80%;
 
-    --destructive: 0 62% 50%;
-    --destructive-foreground: 0 0% 100%;
+      --destructive: 2 72% 66%;
+      --destructive-foreground: var(--brand-green-950);
 
-    --border: 30 15% 18%;
-    --input: 30 15% 18%;
-    --ring: 38 92% 50%;
-    --sidebar-background: 240 5.9% 10%;
-    --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 224.3 76.3% 48%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 3.7% 15.9%;
-    --sidebar-accent-foreground: 240 4.8% 95.9%;
-    --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
+      --success: 152 50% 62%;
+      --success-foreground: var(--brand-green-950);
+
+      --warning: 42 85% 62%;
+      --warning-foreground: var(--brand-green-950);
+
+      --gold: var(--brand-gold-200);
+      --gold-ink: var(--brand-gold-300);
+
+      --border: 163 15% 24%;
+      --input: 163 14% 42%;
+      --ring: var(--brand-gold-200);
+
+      --scrollbar-track: 163 18% 14%;
+      --scrollbar-thumb: 163 12% 42%;
+
+      --shadow-soft: 0 1px 2px hsl(0 0% 0% / 0.4), 0 8px 24px -12px hsl(0 0% 0% / 0.6);
+      --shadow-elegant: 0 24px 48px -24px hsl(0 0% 0% / 0.7);
+
+      --sidebar-background: 163 24% 10%;
+      --sidebar-foreground: var(--brand-cream-100);
+      --sidebar-primary: var(--brand-gold-200);
+      --sidebar-primary-foreground: var(--brand-green-900);
+      --sidebar-accent: 163 18% 18%;
+      --sidebar-accent-foreground: 42 64% 80%;
+      --sidebar-border: 163 15% 24%;
+      --sidebar-ring: var(--brand-gold-200);
+    }
   }
-}
 
-@layer base {
   * {
     @apply border-border;
   }
 
   body {
     @apply bg-background text-foreground;
+    font-family: Inter, system-ui, sans-serif;
+    /* Scales the fallback face to Inter's x-height so the web font swapping in
+       does not shift the layout (CLS). */
+    font-size-adjust: from-font;
     font-feature-settings: "liga" 1, "kern" 1;
+    font-size: var(--step-body);
+    line-height: 1.6;
+    text-align: start;
   }
 
-  h1, h2, h3, h4, h5, h6 {
-    font-family: 'Playfair Display', serif;
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    font-family: "Playfair Display", Georgia, serif;
+    font-size-adjust: cap-height from-font;
     font-weight: 600;
+    line-height: 1.1;
+    /* Headings only: the balancing algorithm is expensive and gives up past
+       ~6 lines, so it is never applied broadly. */
+    text-wrap: balance;
+  }
+
+  p,
+  li,
+  blockquote,
+  dd {
+    /* Avoids single-word last lines in running copy. */
+    text-wrap: pretty;
+    overflow-wrap: break-word;
+  }
+
+  /* The sticky header would otherwise cover whatever the browser scrolls into
+     view, including focused controls (WCAG 2.4.11). */
+  html {
+    scroll-padding-top: 5.5rem;
+  }
+
+  /* The nav is plain anchor links now, so the browser does the scrolling —
+     smoothly, unless the reader has asked for less motion. */
+  @media (prefers-reduced-motion: no-preference) {
+    html {
+      scroll-behavior: smooth;
+    }
+  }
+
+  ::selection {
+    background-color: hsl(var(--primary));
+    color: hsl(var(--primary-foreground));
+  }
+
+  ::placeholder {
+    color: hsl(var(--muted-foreground));
+    opacity: 1;
+  }
+
+  /* Validity styling waits until the field has been left or the form submitted,
+     so required-empty fields are not flagged as errors on load. Range inputs
+     are excluded so dragging a slider does not paint it "valid". */
+  input:not([type="range"]):user-invalid,
+  textarea:user-invalid,
+  select:user-invalid {
+    border-color: hsl(var(--destructive));
+    outline-color: hsl(var(--destructive));
+  }
+
+  input:not([type="range"]):user-valid,
+  textarea:user-valid,
+  select:user-valid {
+    border-color: hsl(var(--success));
+  }
+
+  textarea {
+    resize: vertical;
+  }
+
+  :focus-visible {
+    outline: 3px solid hsl(var(--ring));
+    outline-offset: 2px;
   }
 }
+
+/* ===========================================================================
+   Brand surfaces
+   ---------------------------------------------------------------------------
+   The hero and the header sit on deep green in both schemes, so they are their
+   own colour context rather than a light surface with overridden text. Each
+   carries a background, re-declares the tokens its descendants read, and
+   re-specifies the inherited colour properties that would otherwise arrive
+   already resolved from :root.
+   =========================================================================== */
+
+.brand-dark {
+  color-scheme: only dark;
+  --background: var(--brand-green-850);
+  --foreground: 44 55% 96%;
+  --muted-foreground: 140 14% 88%;
+  --primary: var(--brand-gold-200);
+  --primary-foreground: var(--brand-green-900);
+  --gold-ink: var(--brand-gold-200);
+  --border: var(--brand-green-500);
+  --input: 163 14% 56%;
+  --ring: var(--brand-gold-200);
+  background-color: hsl(var(--background));
+  color: hsl(var(--foreground));
+  accent-color: hsl(var(--primary));
+}
+
+/* ---- hero ---------------------------------------------------------------- */
 
 .venue-hero {
-  background: #18382f; color: #fcf7e9; display: grid;
+  display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1.12fr);
 }
-.venue-intro { align-self: center; padding: clamp(2rem, 5vw, 5rem) clamp(1.25rem, 5vw, 6rem); }
-.venue-location { display: flex; align-items: center; gap: .5rem; color: #ead39f; font-weight: 500; font-size: .875rem; }
-.venue-intro h1 { margin: 1.5rem 0; font-size: clamp(2.85rem, 5.2vw, 6rem); line-height: 1.06; letter-spacing: -.045em; }
-.venue-intro h1 em { color: #ead39f; font-weight: 400; }
-.venue-description { max-width: 36ch; line-height: 1.65; color: #e0e8de; }
-.venue-photo { width: 100%; height: 100%; min-height: 0; object-fit: cover; }
-.venue-date { margin-top: 2rem; border-top: 1px solid #65786a; padding-top: 1rem; }
-.venue-date label { display: block; margin-bottom: .5rem; font-size: .875rem; }
-.venue-date-controls { display: flex; flex-wrap: wrap; gap: .5rem; }
-.venue-date-controls > * { border-radius: .4rem; min-height: 2.875rem; padding: .65rem .85rem; }
-.venue-date input { background: #fffaf0; color: #18382f; min-width: 0; }
-.venue-date button { display: inline-flex; align-items: center; justify-content: center; gap: .6rem; background: #ead39f; color: #18382f; font-weight: 600; }
-.venue-date button:hover { background: #f6e3bb; }
-.venue-date a { display: inline-block; margin-top: .75rem; text-decoration: underline; }
-.venue-calendar { background: #f5f2e9; }
-.venue-calendar-grid, .venue-facilities { max-width: 76rem; margin-inline: auto; padding: clamp(2.5rem, 6vw, 6rem) clamp(1rem, 5vw, 4rem); }
-.venue-calendar-grid { display: grid; grid-template-columns: minmax(0, .86fr) minmax(0, 1fr); align-items: center; gap: clamp(1.5rem, 5vw, 5rem); }
-.venue-facilities h2 { font-size: clamp(2rem, 4vw, 3.5rem); }
-.venue-facilities ul { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%,16rem),1fr)); gap: 1.75rem 2.5rem; margin-top: 2rem; }
-.venue-facilities li { display: flex; gap: 1rem; padding-top: 1.25rem; border-top: 1px solid #c5ccbf; }
-.venue-facilities svg { color: #42614d; flex-shrink: 0; margin-top: .3rem; }
-.venue-facilities h3 { font-size: 1.4rem; }
-.venue-facilities p { margin-top: .35rem; color: #50594e; }
-.venue-skip { position: fixed; z-index: 60; top: .5rem; left: .5rem; transform: translateY(-180%); background: white; padding: .75rem; }
-.venue-skip:focus { transform: none; }
-#booking-main section[id] { scroll-margin-top: 5rem; }
-#booking-main :focus-visible, .venue-skip:focus-visible { outline: 3px solid #2674ad; outline-offset: 3px; }
+
+.venue-intro {
+  align-self: center;
+  padding: clamp(2rem, 5vw, 5rem) clamp(1.25rem, 5vw, 6rem);
+}
+
+.venue-location {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: hsl(var(--gold-ink));
+  font-weight: 500;
+  font-size: var(--step-small);
+}
+
+.venue-intro h1 {
+  margin: 1.5rem 0;
+  font-size: var(--step-display);
+  line-height: 1.06;
+  letter-spacing: -0.045em;
+}
+
+.venue-intro h1 em {
+  color: hsl(var(--gold-ink));
+  font-weight: 400;
+}
+
+.venue-description {
+  max-width: 36ch;
+  line-height: 1.65;
+  color: hsl(var(--muted-foreground));
+}
+
+.venue-photo {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  object-fit: cover;
+}
+
+.venue-date {
+  margin-top: 2rem;
+  border-top: 1px solid hsl(var(--border));
+  padding-top: 1rem;
+}
+
+.venue-date label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-size: var(--step-small);
+}
+
+.venue-date-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.venue-date-controls > * {
+  border-radius: calc(var(--radius) - 0.35rem);
+  /* min-block-size rather than a fixed height: the control still grows when
+     users increase text or line spacing (WCAG 1.4.12). */
+  min-block-size: 2.875rem;
+  padding: 0.65rem 0.85rem;
+}
+
+.venue-date input {
+  background: hsl(44 60% 97%);
+  color: hsl(var(--brand-green-850));
+  border: 1px solid hsl(var(--input));
+  min-width: 0;
+}
+
+.venue-date button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  background: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
+  font-weight: 600;
+  border: 1px solid transparent;
+}
+
+.venue-date button:hover {
+  background: hsl(42 70% 84%);
+}
+
+.venue-date a {
+  display: inline-block;
+  margin-top: 0.75rem;
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+
+/* ---- calendar + facilities ---------------------------------------------- */
+
+.venue-calendar {
+  background: hsl(var(--muted));
+}
+
+.venue-calendar-grid,
+.venue-facilities {
+  max-width: 76rem;
+  margin-inline: auto;
+  padding: var(--section-pad) var(--gutter);
+}
+
+.venue-calendar-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 0.86fr) minmax(0, 1fr);
+  align-items: center;
+  gap: clamp(1.5rem, 5vw, 5rem);
+}
+
+.venue-facilities h2 {
+  font-size: var(--step-h2);
+}
+
+.venue-facilities ul {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr));
+  gap: 1.75rem 2.5rem;
+  margin-top: 2rem;
+}
+
+.venue-facilities li {
+  display: flex;
+  gap: 1rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid hsl(var(--border));
+}
+
+.venue-facilities svg {
+  color: hsl(var(--primary));
+  flex-shrink: 0;
+  margin-top: 0.3rem;
+}
+
+.venue-facilities h3 {
+  font-size: var(--step-h3);
+}
+
+.venue-facilities p {
+  margin-top: 0.35rem;
+  color: hsl(var(--muted-foreground));
+}
+
+/* ---- skip link ---------------------------------------------------------- */
+
+.venue-skip {
+  position: fixed;
+  z-index: 60;
+  top: 0.5rem;
+  left: 0.5rem;
+  transform: translateY(-180%);
+  background: hsl(var(--card));
+  color: hsl(var(--card-foreground));
+  border-radius: calc(var(--radius) - 0.35rem);
+  padding: 0.75rem;
+}
+
+.venue-skip:focus {
+  transform: none;
+}
+
+#booking-main section[id] {
+  scroll-margin-top: 5.5rem;
+}
+
+/* ===========================================================================
+   Header
+   =========================================================================== */
+
+.site-header {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  padding-inline: 0.75rem;
+}
+
+.site-header-inner,
+.site-menu {
+  width: 100%;
+  max-width: 80rem;
+  margin-inline: auto;
+}
+
+.site-header-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding-block: 0.75rem;
+}
+
+.site-brand {
+  appearance: none;
+  background: none;
+  border: 0;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  text-align: start;
+  text-decoration: none;
+  font-family: "Playfair Display", Georgia, serif;
+  font-size: var(--step-h3);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: hsl(var(--foreground));
+}
+
+.site-brand em {
+  color: hsl(var(--gold-ink));
+  font-style: italic;
+  font-weight: 400;
+}
+
+.site-brand small {
+  font-size: 0.6875rem;
+  font-weight: 400;
+  font-family: Inter, system-ui, sans-serif;
+  letter-spacing: 0.04em;
+  color: hsl(var(--muted-foreground));
+}
+
+/* The platform's declarative scrollspy (scroll-target-group + :target-current)
+   is driven by #fragment links, and this app's fragment is owned by HashRouter,
+   so the current section is observed in JS and published as .is-current. */
+.site-nav {
+  position: relative;
+  display: none;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.site-nav button {
+  appearance: none;
+  background: none;
+  border: 0;
+  font: inherit;
+  cursor: pointer;
+  text-decoration: none;
+  padding: 0.35rem 0.85rem;
+  border-radius: 999px;
+  font-size: var(--step-small);
+  font-weight: 500;
+  color: hsl(var(--muted-foreground));
+  border-block-end: 0.15rem solid transparent;
+  transition: color 0.2s;
+}
+
+.site-nav button:hover {
+  color: hsl(var(--foreground));
+}
+
+/* Weight and an underline carry the current state alongside colour, so it does
+   not rest on colour alone. */
+.site-nav button.is-current {
+  color: hsl(var(--foreground));
+  font-weight: 600;
+}
+
+/* The moving indicator is a pseudo-element tethered to the active link, so no
+   extra DOM node and no JS-measured positions. */
+@supports (position-anchor: --a) {
+  .site-nav button.is-current {
+    anchor-name: --site-nav-current;
+    border-block-end-color: transparent;
+  }
+
+  .site-nav::after {
+    content: "";
+    position: absolute;
+    position-anchor: --site-nav-current;
+    inset-block-start: calc(anchor(bottom) + 0.1lh);
+    inset-inline-start: anchor(left);
+    inset-inline-end: anchor(right);
+    /* A border, not a background or box-shadow: forced-colors mode drops both
+       and would leave no indicator at all. */
+    border-block-end: 0.15rem solid hsl(var(--gold-ink));
+  }
+}
+
+@supports not (position-anchor: --a) {
+  .site-nav button.is-current {
+    border-block-end-color: hsl(var(--gold-ink));
+  }
+}
+
+/* These breakpoint rules live here rather than as md: utilities, because this
+   file is emitted after Tailwind's utilities and would otherwise override
+   them. */
+@media (min-width: 48rem) {
+  .site-nav {
+    display: flex;
+  }
+
+  .site-menu,
+  .site-menu-toggle {
+    display: none;
+  }
+}
+
+/* Mobile disclosure: height transitions to the content's intrinsic size, which
+   degrades to an instant open where interpolate-size is unsupported. */
+.site-menu {
+  display: grid;
+  gap: 0.25rem;
+  overflow: hidden;
+  block-size: 0;
+  transition: block-size 0.3s ease, opacity 0.3s ease;
+  opacity: 0;
+}
+
+.site-menu[data-open="true"] {
+  block-size: auto;
+  opacity: 1;
+  padding-block: 0.75rem;
+}
+
+.site-menu :is(a, button) {
+  appearance: none;
+  background: none;
+  border: 0;
+  font: inherit;
+  cursor: pointer;
+  text-align: start;
+  text-decoration: none;
+  padding: 0.6rem 0.5rem;
+  border-radius: calc(var(--radius) - 0.35rem);
+  font-weight: 500;
+  color: hsl(var(--foreground));
+}
+
+.site-menu :is(a, button):hover {
+  background: hsl(var(--muted));
+}
+
+.site-menu button.is-current {
+  font-weight: 600;
+  border-inline-start: 0.2rem solid hsl(var(--gold-ink));
+  padding-inline-start: 0.3rem;
+}
+
+/* ===========================================================================
+   Motion — every effect below is additive, gated on both support and
+   prefers-reduced-motion, and animates only compositable properties.
+   =========================================================================== */
+
+@media (prefers-reduced-motion: no-preference) {
+  @supports ((animation-timeline: scroll()) and (animation-range: 0% 100%)) {
+    @keyframes header-settle {
+      to {
+        background-color: hsl(var(--brand-green-900));
+        box-shadow: var(--shadow-soft);
+      }
+    }
+
+    @keyframes header-tighten {
+      to {
+        padding-block: 0.4rem;
+      }
+    }
+
+    /* Driven by the document's scroll position instead of a scroll event
+       handler, so it runs off the main thread. animation-timeline and
+       animation-range come after the shorthand, which would otherwise reset
+       them. The range is in absolute lengths, so the header staying sticky
+       (and in flow) cannot skew the progress the way percentages would. */
+    .site-header {
+      animation: header-settle auto linear both;
+      animation-timeline: scroll(block root);
+      animation-range: 0 8rem;
+    }
+
+    .site-header-inner {
+      animation: header-tighten auto linear both;
+      animation-timeline: scroll(block root);
+      animation-range: 0 8rem;
+    }
+  }
+
+  @supports ((animation-timeline: view()) and (animation-range: entry)) {
+    /* Phases are expressed as timeline-range selectors inside the keyframes,
+       so the element must NOT also carry an animation-range: that would remap
+       the timeline and strand the section part-way through the fade. The
+       resting state is pinned across the contain phase (entry 75% -> exit 0%)
+       so a section that is fully in view sits at full opacity instead of
+       interpolating straight on towards exit. */
+    @keyframes section-rise {
+      entry 0% {
+        opacity: 0;
+        transform: translateY(1.5rem);
+      }
+      entry 75%,
+      exit 0% {
+        opacity: 1;
+        transform: none;
+      }
+    }
+
+    .reveal {
+      animation: section-rise auto linear both;
+      animation-timeline: view();
+    }
+  }
+
+  .venue-date button,
+  .site-menu :is(a, button),
+  .site-nav button {
+    transition-duration: 0.2s;
+  }
+}
+
+/* Users who ask for less motion get no sizing transition at all. */
+@media (prefers-reduced-motion: reduce) {
+  .site-menu {
+    transition: none;
+  }
+}
+
+/* ===========================================================================
+   Forced colors — gradients, shadows and tinted backgrounds are dropped by the
+   OS in this mode, so anything that was carrying a boundary gets a real border
+   in system colours instead.
+   =========================================================================== */
+
+@media (forced-colors: active) {
+  .brand-dark,
+  .venue-calendar {
+    background: Canvas;
+    color: CanvasText;
+  }
+
+  .venue-facilities li,
+  .venue-date {
+    border-top-color: CanvasText;
+  }
+
+  .site-nav::after,
+  .site-nav button.is-current {
+    border-block-end-color: Highlight;
+  }
+
+  .venue-date button {
+    border-color: ButtonText;
+  }
+
+  :focus-visible {
+    outline-color: Highlight;
+  }
+}
+
+/* ===========================================================================
+   Narrow viewports
+   =========================================================================== */
+
 @media (max-width: 48rem) {
-  .venue-hero, .venue-calendar-grid { grid-template-columns: minmax(0, 1fr); }
-  .venue-photo { height: clamp(13rem, 52vw, 23rem); }
+  .venue-hero,
+  .venue-calendar-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .venue-photo {
+    height: clamp(13rem, 52vw, 23rem);
+  }
+}
+
+/* Legacy WebKit scrollbar fallback, after the standard rule and scoped to
+   browsers without scrollbar-color so the two cannot fight. */
+@supports not (scrollbar-color: auto) {
+  ::-webkit-scrollbar {
+    width: 12px;
+    height: 12px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: hsl(var(--scrollbar-track));
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: hsl(var(--scrollbar-thumb));
+    border-radius: 999px;
+  }
 }

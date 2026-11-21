@@ -1,11 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Menu, X, LogIn, LogOut } from "lucide-react";
-import { AnimatePresence, motion, useMotionValueEvent, useScroll } from "motion/react";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 import { useClientAuth } from "@/contexts/ClientAuthContext";
 import { isApiConfigured } from "@/lib/api";
-import { cn } from "@/lib/utils";
 
 const sections = [
   { id: "home", label: "Home" },
@@ -14,37 +12,69 @@ const sections = [
   { id: "contact", label: "Contact" },
 ];
 
-const Header = () => {
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [scrolled, setScrolled] = useState(false);
-  const [active, setActive] = useState("home");
-  const { customer, openSignIn, signOut, loading } = useClientAuth();
-  const { scrollY } = useScroll();
+const NAV_ITEMS = ".site-nav button, .site-menu button[data-section]";
 
-  useMotionValueEvent(scrollY, "change", (y) => setScrolled(y > 24));
-
+/**
+ * Tracks which section is in view and marks the matching nav item.
+ *
+ * The platform has a declarative version of this (`scroll-target-group` plus
+ * `:target-current`), but it is driven by `#fragment` links — and this app
+ * routes on the URL hash via HashRouter, so a `href="#about"` would be read as
+ * a route and land on the 404 page rather than scrolling. The hash belongs to
+ * the router here, so the sections are scrolled to imperatively and observed
+ * instead. The `.is-current` class it sets is what the stylesheet's
+ * anchor-positioned indicator attaches to.
+ */
+function useCurrentSection(headerRef: React.RefObject<HTMLElement>) {
   useEffect(() => {
+    const header = headerRef.current;
+    if (!header) return;
+    const items = Array.from(header.querySelectorAll<HTMLElement>(NAV_ITEMS));
+    if (!items.length) return;
+
     const observer = new IntersectionObserver(
       (entries) => {
-        entries.forEach((e) => e.isIntersecting && setActive(e.target.id));
+        for (const entry of entries) {
+          if (!entry.isIntersecting) continue;
+          for (const item of items) {
+            const isCurrent = item.dataset.section === entry.target.id;
+            item.classList.toggle("is-current", isCurrent);
+            // The class is only a visual cue; assistive technology needs the
+            // state spelled out.
+            if (isCurrent) item.setAttribute("aria-current", "true");
+            else item.removeAttribute("aria-current");
+          }
+        }
       },
       { rootMargin: "-45% 0px -50% 0px" }
     );
-    sections.forEach(({ id }) => {
+    for (const { id } of sections) {
       const el = document.getElementById(id);
       if (el) observer.observe(el);
-    });
+    }
     return () => observer.disconnect();
-  }, []);
+  }, [headerRef]);
+}
 
-  const scrollToSection = (id: string) => {
-    const element = document.getElementById(id);
-    element?.scrollIntoView({ behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
-    setIsMenuOpen(false);
-  };
+/**
+ * Scrolls to a section. The smooth/instant choice lives in CSS
+ * (`scroll-behavior` under a prefers-reduced-motion query), so this does not
+ * need to read the preference itself. Focus is moved to the section so keyboard
+ * users continue from there rather than from the top of the page.
+ */
+function goToSection(id: string) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.scrollIntoView({ block: "start" });
+  el.focus({ preventScroll: true });
+}
 
-  // Over the dark hero photo the nav needs light text until it gains its glass background.
-  const onHero = !isMenuOpen;
+const Header = () => {
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const { customer, openSignIn, signOut, loading } = useClientAuth();
+  const headerRef = useRef<HTMLElement>(null);
+
+  useCurrentSection(headerRef);
 
   const AuthButton = ({ mobile = false }: { mobile?: boolean }) => {
     if (loading || !isApiConfigured) return null;
@@ -54,10 +84,7 @@ const Header = () => {
           <Link
             to="/profile"
             aria-label="My profile and bookings"
-            className={cn(
-              "flex items-center gap-2 transition-opacity hover:opacity-80",
-              onHero && !mobile ? "text-white" : "text-foreground"
-            )}
+            className="flex items-center gap-2 text-foreground transition-opacity hover:opacity-80"
           >
             <span
               aria-hidden="true"
@@ -65,152 +92,103 @@ const Header = () => {
             >
               {(customer.name || customer.email)[0].toUpperCase()}
             </span>
-            <span className="text-xs hidden lg:block max-w-[140px] truncate">
+            <span className="hidden max-w-[140px] truncate text-xs lg:block">
               {customer.name || customer.email}
             </span>
           </Link>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={signOut}
-            className={cn("gap-1.5 text-xs rounded-full", onHero && !mobile && "text-white hover:bg-white/10 hover:text-white")}
-          >
+          <Button variant="ghost" size="sm" onClick={signOut} className="gap-1.5 rounded-full text-xs">
             <LogOut size={13} /> Sign out
           </Button>
         </div>
       );
     }
     return (
-      <Button
-        size="sm"
-        onClick={() => openSignIn()}
-        className={cn(
-          "gap-1.5 text-xs rounded-full",
-          onHero && !mobile && "bg-white/10 text-white border border-white/20 hover:bg-white/20 backdrop-blur"
-        )}
-      >
+      <Button size="sm" onClick={() => openSignIn()} className="gap-1.5 rounded-full text-xs">
         <LogIn size={13} /> Sign in
       </Button>
     );
   };
 
   return (
-    <header className="sticky top-0 z-50 flex justify-center bg-[#18382f] px-3">
-      <motion.div
-        initial={false}
-        animate={{ y: 0, opacity: 1 }}
-        transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
-        className={cn(
-          "w-full transition-[max-width,background-color,box-shadow,border-color,padding] duration-500 ease-out",
-          "rounded-2xl border",
-          isMenuOpen
-            ? "max-w-5xl bg-background backdrop-blur-xl border-border/70 shadow-soft px-4 py-2.5"
-            : scrolled ? "max-w-7xl border-transparent px-4 py-2" : "max-w-7xl border-transparent px-4 py-3"
-        )}
-      >
-        <div className="flex items-center justify-between gap-4">
-          <button onClick={() => scrollToSection("home")} className="flex flex-col text-left">
-            <span
-              className={cn(
-                "font-serif text-xl md:text-2xl font-semibold tracking-tight transition-colors",
-                onHero ? "text-white" : "text-foreground"
-              )}
-            >
-              Dhanlakshmi <span className={cn("italic transition-colors", onHero ? "text-gold" : "text-primary")}>Park Inn</span>
-            </span>
-            <p
-              className={cn(
-                "hidden sm:block text-[11px] tracking-wide transition-colors",
-                onHero ? "text-white/70" : "text-muted-foreground"
-              )}
-            >
-              Event venue · Chennai
-            </p>
-          </button>
+    /* brand-dark makes the header its own colour context — deep green in both
+       schemes — so the controls inside read tokens rather than being recoloured
+       per state. The shrink-on-scroll is in CSS, off the main thread. */
+    <header ref={headerRef} className="site-header brand-dark">
+      <div className="site-header-inner">
+        <button type="button" className="site-brand" onClick={() => goToSection("home")}>
+          {/* The name is one flex item; a bare text node plus <em> would make
+              the italic half a second item and break it onto its own line. */}
+          <span>
+            Dhanlakshmi <em>Park Inn</em>
+          </span>
+          <small>Event venue · Chennai</small>
+        </button>
 
-          <nav className="hidden md:flex items-center gap-1">
+        <div className="hidden items-center gap-1 md:flex">
+          <nav className="site-nav" aria-label="Sections">
             {sections.map(({ id, label }) => (
-              <button
-                key={id}
-                onClick={() => scrollToSection(id)}
-                className={cn(
-                  "relative isolate rounded-full px-3.5 py-1.5 text-sm font-medium transition-colors",
-                  onHero ? "text-white/80 hover:text-white" : "text-muted-foreground hover:text-foreground",
-                  active === id && (onHero ? "text-white" : "text-foreground")
-                )}
-              >
-                {active === id && (
-                  <motion.span
-                    layoutId="nav-pill"
-                    className={cn(
-                      "absolute inset-0 -z-10 rounded-full",
-                      onHero ? "bg-white/15" : "bg-muted"
-                    )}
-                    transition={{ type: "spring", stiffness: 380, damping: 32 }}
-                  />
-                )}
+              <button key={id} type="button" data-section={id} onClick={() => goToSection(id)}>
                 {label}
               </button>
             ))}
-            <Link
-              to="/admin"
-              className={cn(
-                "rounded-full px-3.5 py-1.5 text-sm font-medium transition-colors",
-                onHero ? "text-white/80 hover:text-white" : "text-muted-foreground hover:text-foreground"
-              )}
-            >
-              Admin
-            </Link>
-            <div className="ml-2">
-              <AuthButton />
-            </div>
           </nav>
-
-          <Button
-            variant="ghost"
-            size="icon"
-            aria-label={isMenuOpen ? "Close menu" : "Open menu"}
-            aria-expanded={isMenuOpen}
-            className={cn("md:hidden rounded-full", onHero && "text-white hover:bg-white/10 hover:text-white")}
-            onClick={() => setIsMenuOpen(!isMenuOpen)}
+          <Link
+            to="/admin"
+            className="rounded-full px-3.5 py-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
           >
-            {isMenuOpen ? <X /> : <Menu />}
-          </Button>
+            Admin
+          </Link>
+          <div className="ml-2">
+            <AuthButton />
+          </div>
         </div>
 
-        <AnimatePresence initial={false}>
-          {isMenuOpen && (
-            <motion.nav
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: "auto", opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
-              transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
-              className="md:hidden overflow-hidden"
-            >
-              <div className="mt-3 flex flex-col gap-1 border-t border-border/70 pt-3 pb-1">
-                {sections.map(({ id, label }) => (
-                  <button
-                    key={id}
-                    onClick={() => scrollToSection(id)}
-                    className="rounded-lg px-2 py-2 text-left font-medium text-foreground hover:bg-muted transition-colors"
-                  >
-                    {label}
-                  </button>
-                ))}
-                <Link
-                  to="/admin"
-                  className="rounded-lg px-2 py-2 text-left font-medium text-foreground hover:bg-muted transition-colors"
-                >
-                  Admin
-                </Link>
-                <div className="px-2 pt-1">
-                  <AuthButton mobile />
-                </div>
-              </div>
-            </motion.nav>
-          )}
-        </AnimatePresence>
-      </motion.div>
+        <Button
+          variant="ghost"
+          size="icon"
+          aria-label={isMenuOpen ? "Close menu" : "Open menu"}
+          aria-expanded={isMenuOpen}
+          aria-controls="site-menu"
+          className="site-menu-toggle rounded-full"
+          onClick={() => setIsMenuOpen(!isMenuOpen)}
+        >
+          {isMenuOpen ? <X /> : <Menu />}
+        </Button>
+      </div>
+
+      {/* Stays in the DOM so its height can transition, but `inert` while
+          closed keeps the collapsed controls out of the tab order and the
+          accessibility tree. */}
+      <nav
+        id="site-menu"
+        aria-label="Site menu"
+        className="site-menu"
+        data-open={isMenuOpen}
+        {/* `inert` is not in React 18's attribute types; cast rather than drop
+            the attribute, which is what actually keeps the closed menu out of
+            the tab order. */}
+        {...(isMenuOpen ? {} : ({ inert: "" } as any))}
+      >
+        {sections.map(({ id, label }) => (
+          <button
+            key={id}
+            type="button"
+            data-section={id}
+            onClick={() => {
+              setIsMenuOpen(false);
+              goToSection(id);
+            }}
+          >
+            {label}
+          </button>
+        ))}
+        <Link to="/admin" onClick={() => setIsMenuOpen(false)}>
+          Admin
+        </Link>
+        <div className="px-2 pt-1">
+          <AuthButton mobile />
+        </div>
+      </nav>
     </header>
   );
 };
