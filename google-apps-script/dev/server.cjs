@@ -9,9 +9,10 @@ const g = createGasContext({ ownerEmail, printErrors: true });
 g.runSetup();
 let seeded = false;
 
-const CORS = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'Content-Type', 'Access-Control-Allow-Methods': 'GET, POST, OPTIONS' };
+const localOrigins = new Set(['http://localhost:8080', 'http://127.0.0.1:8080']);
+const outboxEnabled = process.env.DEV_OUTBOX === '1';
 const send = (res, status, body, type = 'application/json') => {
-  res.writeHead(status, Object.assign({ 'Content-Type': type + '; charset=utf-8' }, CORS));
+  res.writeHead(status, { 'Content-Type': type + '; charset=utf-8', 'Cache-Control': 'no-store' });
   res.end(typeof body === 'string' ? body : JSON.stringify(body));
 };
 const readBody = (req) => new Promise((resolve, reject) => {
@@ -87,6 +88,16 @@ function seed() {
 }
 
 const server = http.createServer(async (req, res) => {
+  const localHosts = [`localhost:${server.address().port}`, `127.0.0.1:${server.address().port}`];
+  if (!localHosts.includes(req.headers.host)) return send(res, 403, 'Forbidden');
+  const origin = req.headers.origin;
+  if (origin !== undefined) {
+    if (!localOrigins.has(origin) && origin !== 'http://' + req.headers.host) return send(res, 403, 'Forbidden');
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Vary', 'Origin');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  }
   const url = new URL(req.url, 'http://localhost');
   try {
     if (req.method === 'OPTIONS') return send(res, 204, '');
@@ -104,7 +115,7 @@ const server = http.createServer(async (req, res) => {
       console.log(`GET  /exec ${action || 'status'} -> ${out.ok ? 'ok' : out.code || 'error'}`);
       return send(res, 200, out, 'text/plain');
     }
-    if (url.pathname === '/dev/outbox' && req.method === 'GET') return send(res, 200, g.outbox.slice(-50));
+    if (outboxEnabled && url.pathname === '/dev/outbox' && req.method === 'GET') return send(res, 200, g.outbox.slice(-50));
     if (url.pathname === '/dev/seed' && req.method === 'POST') {
       if (seeded) return send(res, 409, { ok: false, error: 'Already seeded; restart the server to reset.' });
       const summary = seed();
@@ -119,4 +130,4 @@ const server = http.createServer(async (req, res) => {
   }
 });
 
-server.listen(port, () => console.log(`Park Inn dev backend on http://localhost:${port}/exec (owner: ${ownerEmail})`));
+server.listen(port, '127.0.0.1', () => console.log(`Park Inn dev backend on http://127.0.0.1:${server.address().port}/exec (owner: ${ownerEmail})`));

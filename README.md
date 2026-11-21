@@ -45,12 +45,12 @@ npm install
 Run the website against a local simulation of the Google backend:
 
 ```sh
-OWNER_EMAIL=you@example.com node google-apps-script/dev/server.cjs 8787   # simulated Sheet/Calendar/Gmail
-curl -X POST localhost:8787/dev/seed                                        # optional demo data
-VITE_BOOKING_API_URL=http://localhost:8787/exec npm run dev
+DEV_OUTBOX=1 OWNER_EMAIL=you@example.com node google-apps-script/dev/server.cjs 8787   # simulated Sheet/Calendar/Gmail
+curl -X POST 127.0.0.1:8787/dev/seed                                        # optional demo data
+VITE_BOOKING_API_URL=http://127.0.0.1:8787/exec npm run dev
 ```
 
-Sign-in codes appear at `http://localhost:8787/dev/outbox`.
+The simulator listens on IPv4 loopback and accepts the local frontend on port 8080. With `DEV_OUTBOX=1`, simulated sign-in emails appear at `http://127.0.0.1:8787/dev/outbox`.
 
 ### Tests
 

@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { api, ApiError, isApiConfigured, type AccessStatus, type CustomerProfile } from '@/lib/api';
+import { toast } from 'sonner';
 import SignInDialog from '@/components/SignInDialog';
 
 export type { AccessStatus };
@@ -28,20 +29,29 @@ export function ClientAuthProvider({ children }: { children: React.ReactNode }) 
   const [dialogOpen, setDialogOpen] = useState(false);
   const afterSignIn = useRef<(() => void) | undefined>();
 
-  const signOut = useCallback(() => {
+  const clearSession = useCallback(() => {
     localStorage.removeItem(STORAGE_KEY);
     setToken(null);
     setCustomer(null);
   }, []);
+
+  const signOut = useCallback(async () => {
+    try {
+      if (token) await api('logout', {}, token);
+      clearSession();
+    } catch {
+      toast.error('Could not sign out. Check your connection and try again.');
+    }
+  }, [token, clearSession]);
 
   const refresh = useCallback(async () => {
     if (!token) return;
     try {
       setCustomer(await api<CustomerProfile>('me', {}, token));
     } catch (err) {
-      if (err instanceof ApiError && err.code === 'AUTH') signOut();
+      if (err instanceof ApiError && err.code === 'AUTH') clearSession();
     }
-  }, [token, signOut]);
+  }, [token, clearSession]);
 
   useEffect(() => {
     if (!token || !isApiConfigured) return;

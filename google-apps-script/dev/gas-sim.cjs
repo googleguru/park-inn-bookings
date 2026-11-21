@@ -196,6 +196,7 @@ function createGasContext(opts = {}) {
   const props = new Map();
   const PropertiesService = {
     getScriptProperties: () => ({
+      getProperties: () => Object.fromEntries(props),
       getProperty: (k) => (props.has(k) ? props.get(k) : null),
       setProperty(k, v) { props.set(k, String(v)); },
       deleteProperty(k) { props.delete(k); },

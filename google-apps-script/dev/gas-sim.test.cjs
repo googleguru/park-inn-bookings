@@ -677,3 +677,41 @@ test('Google login trusts only the verified allowlisted Google identity', () => 
   assert.equal(g.call('adminData', {token:session.token}).ok, true);
   assert.equal(g.call('sendCode', {email:OWNER,purpose:'admin'}).code, 'AUTH');
 });
+
+test('overlapping verifications consume a sign-in code exactly once', () => {
+  const email = 'guest@example.com';
+  assert.ok(g.call('sendCode', { email }).ok);
+  const request = { email, code: lastCode(email) };
+  const cache = g.context.CacheService.getScriptCache();
+  const originalGet = cache.get;
+  let overlapping;
+  cache.get = (key) => {
+    const value = originalGet(key);
+    if (key.startsWith('code:')) {
+      cache.get = originalGet;
+      overlapping = g.call('verifyCode', request);
+    }
+    return value;
+  };
+  g.context.CacheService.getScriptCache = () => cache;
+  assert.ok(g.call('verifyCode', request).ok);
+  assert.equal(overlapping.code, 'BUSY');
+  assert.equal(g.call('verifyCode', request).code, 'CODE');
+});
+
+test('logout revokes only the selected customer session, including legacy tokens', () => {
+  const email = 'guest@example.com';
+  const first = customerToken(email);
+  const second = customerToken(email);
+  const legacy = g.context.sign_({ t: 'c', e: email, exp: T0 + MIN });
+  for (const token of [first, legacy]) {
+    assert.ok(g.call('myBookings', { token }).ok);
+    assert.ok(g.call('logout', { token }).ok);
+    assert.equal(g.call('myBookings', { token }).code, 'AUTH');
+  }
+  assert.ok(g.call('myBookings', { token: second }).ok);
+  g.clock.advance(MIN);
+  g.context.monthlyReportJob();
+  assert.equal([...g.props.keys()].filter(k => k.startsWith('customer-revoked:')).length, 1);
+  assert.equal(g.call('me', { token: first }).code, 'AUTH');
+});
