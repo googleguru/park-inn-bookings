@@ -158,15 +158,13 @@ const Header = () => {
 
       {/* Stays in the DOM so its height can transition, but `inert` while
           closed keeps the collapsed controls out of the tab order and the
-          accessibility tree. */}
+          accessibility tree. `inert` is not in React 18's attribute types, so
+          it is spread through a cast rather than dropped. */}
       <nav
         id="site-menu"
         aria-label="Site menu"
         className="site-menu"
         data-open={isMenuOpen}
-        {/* `inert` is not in React 18's attribute types; cast rather than drop
-            the attribute, which is what actually keeps the closed menu out of
-            the tab order. */}
         {...(isMenuOpen ? {} : ({ inert: "" } as any))}
       >
         {sections.map(({ id, label }) => (
