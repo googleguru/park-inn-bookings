@@ -6,8 +6,6 @@ import {
   Music,
   UtensilsCrossed,
 } from "lucide-react";
-import { BlurFade } from "@/components/magicui/blur-fade";
-import { MagicCard } from "@/components/magicui/magic-card";
 
 
 const About = () => {
@@ -45,57 +43,16 @@ const About = () => {
   ];
 
   return (
-    <section id="about" className="py-24 md:py-32">
-      <div className="container mx-auto px-4">
-        <div className="grid gap-10 lg:grid-cols-[1fr_1.4fr] lg:gap-20 mb-16 md:mb-24">
-          <BlurFade inView>
-            <p className="mb-4 text-xs font-semibold uppercase tracking-[0.25em] text-primary">
-              The venue
-            </p>
-            <h2 className="text-balance text-4xl md:text-5xl font-semibold leading-tight">
-              About Dhanlakshmi <span className="italic text-primary">Park Inn</span>
-            </h2>
-          </BlurFade>
-          <div className="space-y-6">
-            <p className="text-lg leading-relaxed text-muted-foreground">The venue offers parking, catering arrangements and décor support. Contact the booking desk to discuss guest numbers, timings and the layout for your event.</p>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-5">
-          {facilities.map((facility, index) => (
-            <BlurFade key={facility.title} inView delay={0.05 * index} className="rounded-2xl">
-              <MagicCard
-                className="h-full rounded-2xl"
-                gradientColor="hsl(40 60% 88% / 0.6)"
-                gradientFrom="hsl(var(--gold))"
-                gradientTo="hsl(var(--primary))"
-                gradientSize={260}
-              >
-                <div className="flex h-full flex-col gap-5 p-7">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-xl border border-primary/15 bg-accent/60">
-                    <facility.icon className="h-5 w-5 text-primary" strokeWidth={1.75} />
-                  </div>
-                  <div className="space-y-2">
-                    <h3 className="text-xl font-semibold">{facility.title}</h3>
-                    <p className="text-muted-foreground leading-relaxed">{facility.description}</p>
-                  </div>
-                </div>
-              </MagicCard>
-            </BlurFade>
-          ))}
-        </div>
-
-        <BlurFade inView className="mt-20 md:mt-28">
-          <figure className="mx-auto max-w-3xl text-center">
-            <span aria-hidden="true" className="block font-serif text-6xl leading-none text-gold">
-              “
-            </span>
-            <blockquote className="text-balance font-serif text-3xl md:text-4xl italic leading-snug text-foreground">
-              Creating beautiful memories, one celebration at a time
-            </blockquote>
-          </figure>
-        </BlurFade>
-      </div>
+    <section id="about" className="venue-facilities">
+      <h2>Venue facilities</h2>
+      <ul>
+        {facilities.map(({ icon: Icon, title, description }) => (
+          <li key={title}>
+            <Icon size={22} strokeWidth={1.5} aria-hidden="true" />
+            <div><h3>{title}</h3><p>{description}</p></div>
+          </li>
+        ))}
+      </ul>
     </section>
   );
 };

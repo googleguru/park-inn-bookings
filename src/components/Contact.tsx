@@ -6,7 +6,6 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Phone, Mail, MapPin, Send } from "lucide-react";
 import { toast } from "sonner";
-import { BlurFade } from "@/components/magicui/blur-fade";
 
 const CONTACT_EMAIL = "info@dhanlakshmiparkinn.com";
 
@@ -71,16 +70,16 @@ const Contact = () => {
   return (
     <section id="contact" className="py-24 md:py-32">
       <div className="container mx-auto px-4">
-        <BlurFade inView className="text-center mb-14">
+        <div className="text-center mb-14">
           <p className="mb-4 text-xs font-semibold uppercase tracking-[0.25em] text-primary">Contact</p>
           <h2 className="text-4xl md:text-5xl font-semibold mb-4">Get In Touch</h2>
           <p className="text-lg text-muted-foreground">
             Got questions? We're just a call away.
           </p>
-        </BlurFade>
+        </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8 max-w-6xl mx-auto">
-          <BlurFade inView delay={0.05}>
+          <div>
             <Card className="h-full rounded-3xl border-border/70 p-6 md:p-10 shadow-soft">
               <h3 className="text-2xl font-semibold mb-8">Contact Information</h3>
 
@@ -108,9 +107,9 @@ const Contact = () => {
                 </div>
               </div>
             </Card>
-          </BlurFade>
+          </div>
 
-          <BlurFade inView delay={0.15}>
+          <div>
             <Card className="h-full rounded-3xl border-border/70 p-6 md:p-10 shadow-soft">
               <h3 className="text-2xl font-semibold mb-8">Send us a Message</h3>
 
@@ -178,7 +177,7 @@ const Contact = () => {
                 </Button>
               </form>
             </Card>
-          </BlurFade>
+          </div>
         </div>
       </div>
     </section>

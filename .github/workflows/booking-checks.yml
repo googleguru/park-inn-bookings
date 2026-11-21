@@ -40,6 +40,10 @@ jobs:
           url=http://127.0.0.1:8080/park-inn-bookings/
           curl --fail --retry 15 --retry-connrefused --retry-delay 1 "$url" >/dev/null
           "$browser" open "$url"
+          "$browser" set viewport 390 844
+          "$browser" wait '#visit-date'
+          "$browser" wait --fn 'document.documentElement.scrollWidth <= window.innerWidth'
+          "$browser" find role button click --name 'Check availability'
           "$browser" wait --text "Sign in with your email to request a booking"
           "$browser" click 'button[role=gridcell][aria-selected=true]'
           "$browser" fill '#signin-email' priya.sharma@example.com

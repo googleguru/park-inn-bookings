@@ -8,8 +8,6 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { BlurFade } from "@/components/magicui/blur-fade";
-import { BorderBeam } from "@/components/magicui/border-beam";
 import BookingModal from "./BookingModal";
 import { useClientAuth } from "@/contexts/ClientAuthContext";
 import { api, ApiError, isApiConfigured, type SystemStatus } from "@/lib/api";
@@ -123,16 +121,15 @@ const BookingCalendar = ({ visitDate }: { visitDate?: Date }) => {
   const modifiersStyles = {
     booked: { backgroundColor: "hsl(var(--destructive))", color: "white", fontWeight: "bold" },
     pending: { backgroundColor: "hsl(var(--warning))", color: "hsl(var(--warning-foreground))", fontWeight: "bold" },
-    available: { backgroundColor: "hsl(var(--success) / 0.1)", color: "hsl(var(--success))", fontWeight: "500" },
+    available: { backgroundColor: "hsl(var(--success) / 0.1)", color: "hsl(152 48% 26%)", fontWeight: "500" },
   };
 
   const access = customer?.access;
 
   return (
-    <section id="calendar" className="relative py-24 md:py-32 bg-muted/40">
-      <div className="container mx-auto px-4">
-        <BlurFade inView className="text-center mb-14">
-          <p className="mb-4 text-xs font-semibold uppercase tracking-[0.25em] text-primary">Availability</p>
+    <section id="calendar" className="venue-calendar">
+      <div className="venue-calendar-grid">
+        <div className="min-w-0">
           <h2 className="text-4xl md:text-5xl font-semibold mb-4">Booking Calendar</h2>
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
             Select an available date to book your event at Dhanlakshmi Park Inn
@@ -156,11 +153,10 @@ const BookingCalendar = ({ visitDate }: { visitDate?: Date }) => {
                 : "Pick a date to request booking access"}
             </p>
           )}
-        </BlurFade>
+        </div>
 
-        <BlurFade inView delay={0.1} className="max-w-4xl mx-auto">
-          <Card className="relative overflow-hidden rounded-3xl border-border/70 p-6 md:p-10 shadow-elegant">
-            <BorderBeam size={120} duration={10} colorFrom="hsl(var(--gold))" colorTo="hsl(var(--primary))" borderWidth={1.5} />
+        <div className="min-w-0">
+          <Card className="relative overflow-hidden rounded-xl border-border p-2 sm:p-6">
             {bookingOpen && <div className="flex flex-wrap gap-4 justify-center mb-8">
               <Badge variant="outline" className="flex items-center gap-2 rounded-full px-4 py-1.5 font-medium bg-success/10 border-success/30">
                 <CheckCircle className="w-4 h-4 text-success" />Available
@@ -185,12 +181,12 @@ const BookingCalendar = ({ visitDate }: { visitDate?: Date }) => {
                 }}
                 modifiers={bookingOpen ? modifiers : {}}
                 modifiersStyles={modifiersStyles}
-                className="rounded-2xl border bg-background p-4 shadow-soft"
+                className="rounded-lg bg-background p-1 sm:p-3"
                 disabled={(d) => format(d, "yyyy-MM-dd") < format(new Date(), "yyyy-MM-dd")}
               />
             </div>
           </Card>
-        </BlurFade>
+        </div>
       </div>
 
       {/* Approval gate */}
@@ -202,7 +198,6 @@ const BookingCalendar = ({ visitDate }: { visitDate?: Date }) => {
           className="fixed inset-0 m-auto max-h-[90dvh] w-[calc(100%-2rem)] max-w-sm overflow-y-auto rounded-3xl border bg-card p-7 text-center text-card-foreground shadow-elegant backdrop:bg-secondary/40 backdrop:backdrop-blur-sm"
           onClose={() => setShowAccessPrompt(false)}
         >
-            <BorderBeam size={80} duration={8} colorFrom="hsl(var(--gold))" colorTo="hsl(var(--primary))" />
             <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-accent">
               {access === "pending" ? <Hourglass className="h-6 w-6 text-primary" />
                 : access === "rejected" || access === "blocked" ? <ShieldX className="h-6 w-6 text-destructive" />
