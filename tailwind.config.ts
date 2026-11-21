@@ -2,7 +2,10 @@ import type { Config } from "tailwindcss";
 import tailwindcssAnimate from "tailwindcss-animate";
 
 export default {
-  darkMode: ["class"],
+  // 'media' rather than a class: the CSS tokens in index.css switch on
+  // prefers-color-scheme, and there is no theme toggle in the UI, so the
+  // dark: utilities need to follow the same signal or the two disagree.
+  darkMode: "media",
   content: ["./pages/**/*.{ts,tsx}", "./components/**/*.{ts,tsx}", "./app/**/*.{ts,tsx}", "./src/**/*.{ts,tsx}"],
   prefix: "",
   theme: {
@@ -48,7 +51,12 @@ export default {
           DEFAULT: "hsl(var(--warning))",
           foreground: "hsl(var(--warning-foreground))",
         },
-        gold: "hsl(var(--gold))",
+        gold: {
+          DEFAULT: "hsl(var(--gold))",
+          // Readable variant for gold text and icons; the plain gold is a
+          // light tint and fails contrast as a foreground on cream.
+          ink: "hsl(var(--gold-ink))",
+        },
         popover: {
           DEFAULT: "hsl(var(--popover))",
           foreground: "hsl(var(--popover-foreground))",
@@ -69,8 +77,17 @@ export default {
         },
       },
       fontFamily: {
-        serif: ['Playfair Display', 'serif'],
-        sans: ['Inter', 'sans-serif'],
+        serif: ["Playfair Display", "Georgia", "serif"],
+        sans: ["Inter", "system-ui", "sans-serif"],
+      },
+      fontSize: {
+        // Fluid steps shared with the plain-CSS sections, so a heading is the
+        // same size whichever layer styles it.
+        display: ["var(--step-display)", { lineHeight: "1.06" }],
+        "fluid-h2": ["var(--step-h2)", { lineHeight: "1.1" }],
+        "fluid-h3": ["var(--step-h3)", { lineHeight: "1.25" }],
+        "fluid-body": ["var(--step-body)", { lineHeight: "1.6" }],
+        "fluid-small": ["var(--step-small)", { lineHeight: "1.5" }],
       },
       borderRadius: {
         lg: "var(--radius)",

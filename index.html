@@ -4,10 +4,27 @@
     <meta charset="UTF-8" />
     <link rel="icon" href="/favicon.ico" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <!-- Declared before anything renders so the browser paints the right canvas
+         colour and themes native UI straight away, rather than flashing light. -->
+    <meta name="color-scheme" content="light dark" />
+    <meta name="theme-color" content="#18382f" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#0e1b17" media="(prefers-color-scheme: dark)" />
+
     <title>Dhanlakshmi Park Inn - Event Venue & Celebration Space</title>
     <meta name="description" content="Book your special day at Dhanlakshmi Park Inn. A beautiful venue for weddings, receptions, corporate events, and celebrations. Check availability and book online." />
     <meta name="keywords" content="event venue, wedding hall, party venue, corporate events, celebration space, Dhanlakshmi Park Inn" />
     <meta name="author" content="Dhanlakshmi Park Inn" />
+
+    <!-- The fonts were being pulled in with @import from the stylesheet, which
+         chains a second request behind the CSS before anything can render.
+         Linked here instead, with the TLS handshakes opened up front. -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=Inter:wght@300;400;500;600;700&display=swap"
+    />
 
     <meta property="og:title" content="Dhanlakshmi Park Inn - Book Your Special Day" />
     <meta property="og:description" content="From intimate gatherings to grand celebrations, make your moments unforgettable at Dhanlakshmi Park Inn." />

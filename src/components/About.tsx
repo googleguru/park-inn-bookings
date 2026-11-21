@@ -43,7 +43,7 @@ const About = () => {
   ];
 
   return (
-    <section id="about" className="venue-facilities">
+    <section id="about" tabIndex={-1} className="venue-facilities reveal">
       <h2>Venue facilities</h2>
       <ul>
         {facilities.map(({ icon: Icon, title, description }) => (

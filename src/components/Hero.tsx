@@ -9,7 +9,7 @@ export default function Hero({ onDate }: { onDate: (date: Date) => void }) {
   const [day, setDay] = useState(today);
 
   return (
-    <section id="home" aria-labelledby="venue-title" className="venue-hero">
+    <section id="home" tabIndex={-1} aria-labelledby="venue-title" className="venue-hero brand-dark">
       <div className="venue-intro">
         <p className="venue-location"><MapPin size={16} aria-hidden="true" /> West Jafferkhanpet, Chennai</p>
         <h1 id="venue-title">Dhanlakshmi<br /><em>Park Inn</em></h1>
