@@ -104,9 +104,9 @@ const ROUTES = {
   googleAdminConfig: googleAdminConfig_,
   googleAdminLogin: googleAdminLogin_,
   availability: apiAvailability_,
-  sendCode: apiSendCode_,
-  verifyCode: apiVerifyCode_,
-  logout: apiLogout_,
+  sendCode: (req) => withLock_(() => apiSendCode_(req)),
+  verifyCode: (req) => withLock_(() => apiVerifyCode_(req)),
+  logout: (req) => withLock_(() => apiLogout_(req)),
   // Customer
   me: apiMe_,
   requestAccess: apiRequestAccess_,
@@ -243,7 +243,7 @@ function apiVerifyCode_(req) {
   cache.remove(key);
 
   if (purpose === 'customer') {
-    const token = sign_({ t: 'c', e: email, exp: Date.now() + CUSTOMER_TOKEN_DAYS * 86400000 });
+    const token = sign_({ t: 'c', e: email, sid: Utilities.getUuid(), exp: Date.now() + CUSTOMER_TOKEN_DAYS * 86400000 });
     return { token, profile: customerProfile_(email) };
   }
 
@@ -268,6 +268,9 @@ function issueAdminSession_(email) {
 
 function apiLogout_(req) {
   const p = verifyToken_(req.token, true);
+  if (p && p.t === 'c') {
+    PropertiesService.getScriptProperties().setProperty(customerRevocationKey_(p, req.token), String(p.exp));
+  }
   if (p && p.t === 'a') {
     const props = PropertiesService.getScriptProperties();
     if (props.getProperty('admin-sid:' + p.e) === p.sid) props.deleteProperty('admin-sid:' + p.e);
@@ -830,9 +833,14 @@ function bookingInput_(req, adminCreated) {
 /* Auth                                                                */
 /* ------------------------------------------------------------------ */
 
+function customerRevocationKey_(payload, token) {
+  // Older signed tokens have no session ID and can still be revoked individually.
+  return 'customer-revoked:' + (payload.sid || hash_(token));
+}
+
 function requireCustomer_(req) {
   const p = verifyToken_(req.token);
-  if (p.t !== 'c') throw fail_('Please sign in again.', 'AUTH');
+  if (p.t !== 'c' || PropertiesService.getScriptProperties().getProperty(customerRevocationKey_(p, req.token))) throw fail_('Please sign in again.', 'AUTH');
   return p.e;
 }
 
@@ -1282,6 +1290,10 @@ function monthlyReportJob() {
   return withLock_(() => {
     const month = addDays_(today_().slice(0, 7) + '-01', -1).slice(0, 7);
     const p = PropertiesService.getScriptProperties();
+    const properties = p.getProperties();
+    for (const key of Object.keys(properties)) {
+      if (key.startsWith('customer-revoked:') && Number(properties[key]) <= Date.now()) p.deleteProperty(key);
+    }
     if (p.getProperty('monthly-report-complete') === month) return { skipped: true, month };
     const result = createMonthlyReport_(month, 'Scheduled report');
     p.setProperty('monthly-report-complete', month);

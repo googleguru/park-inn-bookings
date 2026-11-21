@@ -1,0 +1,61 @@
+name: Booking checks
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  booking:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run test:backend
+      - run: npx --no-install tsc --noEmit -p tsconfig.app.json
+      - run: npm run build
+      - name: Exercise an approved customer booking in Chrome
+        env:
+          TZ: Asia/Kolkata
+          DEV_OUTBOX: '1'
+          VITE_BOOKING_API_URL: http://127.0.0.1:8787/exec
+        run: |
+          set -euo pipefail
+          npm install --prefix "$RUNNER_TEMP/browser-tools" agent-browser@0.43.0
+          browser="$RUNNER_TEMP/browser-tools/node_modules/.bin/agent-browser"
+          export AGENT_BROWSER_EXECUTABLE_PATH="$(command -v google-chrome)"
+          node google-apps-script/dev/server.cjs 8787 &
+          backend=$!
+          npm run dev -- --host 127.0.0.1 --strictPort &
+          frontend=$!
+          trap 'kill "$backend" "$frontend" 2>/dev/null || true' EXIT
+          curl --fail --retry 15 --retry-connrefused --retry-delay 1 -X POST http://127.0.0.1:8787/dev/seed
+          url=http://127.0.0.1:8080/park-inn-bookings/
+          curl --fail --retry 15 --retry-connrefused --retry-delay 1 "$url" >/dev/null
+          "$browser" open "$url"
+          "$browser" wait --text "Sign in with your email to request a booking"
+          "$browser" click 'button[role=gridcell][aria-selected=true]'
+          "$browser" fill '#signin-email' priya.sharma@example.com
+          "$browser" find role button click --name 'Send code'
+          "$browser" wait '[aria-label="6-digit code"]'
+          code=$(curl -fsS http://127.0.0.1:8787/dev/outbox | jq -er '[.[] | select(.to=="priya.sharma@example.com") | .subject | match("^[0-9]{6}").string] | last')
+          "$browser" fill '[aria-label="6-digit code"]' "$code"
+          "$browser" wait --text "Let's Plan Your Event"
+          "$browser" click '#eventType'
+          "$browser" find role option click --name 'Wedding'
+          "$browser" fill '#guests' 50
+          "$browser" click '#timeSlot'
+          "$browser" find role option click --name 'Full day'
+          "$browser" click '#terms'
+          "$browser" find role button click --name 'Submit Booking Request'
+          "$browser" wait --text 'Booking request sent for'
+          "$browser" open "${url}#/profile"
+          "$browser" wait --text 'Wedding · Full day · 50 guests'
+          "$browser" close

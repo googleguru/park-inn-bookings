@@ -55,7 +55,7 @@ const BookingModal = ({ open, onOpenChange, selectedDate, onBookingSuccess }: Bo
     e.preventDefault();
     if (!selectedDate || !customer || submitting) return;
     if (!acceptedTerms) {
-      toast.error("Please accept the Terms & Privacy Policy to continue.");
+      toast.error("Please confirm that the venue may contact you about your booking.");
       return;
     }
 
@@ -234,6 +234,14 @@ const BookingModal = ({ open, onOpenChange, selectedDate, onBookingSuccess }: Bo
             />
           </div>
 
+          <details className="text-sm">
+            <summary className="cursor-pointer font-medium">How the venue handles your request</summary>
+            <p className="mt-2 text-muted-foreground">
+              Venue staff use your contact and event details to review your request. The venue stores these details
+              in its booking spreadsheet and adds confirmed events to its calendar. You can cancel a pending
+              request from your profile. For changes to a confirmed event, call the venue.
+            </p>
+          </details>
           <div className="flex items-start gap-2 rounded-xl border bg-muted/40 p-3">
             <Checkbox
               id="terms"
@@ -242,11 +250,7 @@ const BookingModal = ({ open, onOpenChange, selectedDate, onBookingSuccess }: Bo
               className="mt-0.5"
             />
             <Label htmlFor="terms" className="text-xs font-normal leading-relaxed cursor-pointer">
-              I agree to the{" "}
-              <a href="#terms" className="text-primary underline" target="_blank" rel="noreferrer">Terms of Service</a>
-              {" "}and{" "}
-              <a href="#privacy" className="text-primary underline" target="_blank" rel="noreferrer">Privacy Policy</a>,
-              and consent to being contacted about this booking request.
+              I understand that the venue must confirm my request and agree to be contacted about this booking.
             </Label>
           </div>
 
