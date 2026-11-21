@@ -62,6 +62,25 @@ jobs:
           "$browser" wait --text 'Booking request sent for'
           "$browser" open "${url}#/profile"
           "$browser" wait --text 'Wedding · Full day · 50 guests'
+          # Sign out from the profile page. This is the path that used to leave a
+          # live session behind when the server call failed, and nothing else
+          # here exercises it.
+          "$browser" find role button click --name 'Sign out'
+          # Profile redirects to "/" once the session is cleared, so landing
+          # back on the hero is the signal that sign-out actually took effect.
+          "$browser" wait '#visit-date'
+          # A customer whose access is still pending never reaches the booking
+          # form -- they get the approval gate. That gate is a native <dialog>
+          # opened with showModal(), so this is also the only coverage of the
+          # top-layer path, which sits inside an animated, clipped section.
+          "$browser" click 'button[role=gridcell][aria-selected=true]'
+          "$browser" fill '#signin-email' meena.iyer@example.com
+          "$browser" find role button click --name 'Send code'
+          "$browser" wait '[aria-label="6-digit code"]'
+          pending_code=$(curl -fsS http://127.0.0.1:8787/dev/outbox | jq -er '[.[] | select(.to=="meena.iyer@example.com") | .subject | match("^[0-9]{6}").string] | last')
+          "$browser" fill '[aria-label="6-digit code"]' "$pending_code"
+          "$browser" wait --text 'Approval pending'
+          "$browser" wait --fn 'document.documentElement.scrollWidth <= window.innerWidth'
           "$browser" open "${url}#/admin"
           "$browser" fill '#signin-email' owner@example.com
           "$browser" find role button click --name 'Send code'
