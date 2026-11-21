@@ -65,6 +65,29 @@ The simulator listens on IPv4 loopback and accepts the local frontend on port 80
 npm run test:backend   # runs Code.gs against simulated Google services
 ```
 
+Pull requests also run `.github/workflows/booking-checks.yml`, which type-checks,
+builds, and drives a real booking end to end in Chrome.
+
+### Agentic security scan (optional)
+
+`.github/workflows/strix-security.yml` runs [Strix](https://github.com/usestrix/strix) —
+autonomous AI pentesting agents — against the app weekly and on demand
+(**Actions -> Strix security scan -> Run workflow**, where you can pick the scan
+mode and point it at the repository or a running URL).
+
+It is off until you add two repository secrets under
+**Settings -> Secrets and variables -> Actions**:
+
+| Secret | Value |
+| --- | --- |
+| `STRIX_LLM` | model name, e.g. `openrouter/z-ai/glm-5.3` |
+| `LLM_API_KEY` | API key for that provider |
+
+Without `LLM_API_KEY` the job skips cleanly rather than failing. Scans cost LLM
+tokens, so it deliberately does not run on every push, and it is non-blocking:
+a finding is reported in the run summary and an artifact, and never stands
+between you and a deploy.
+
 ### Building for Production
 
 ```sh

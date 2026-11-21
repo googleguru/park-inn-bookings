@@ -1,0 +1,122 @@
+
+# Agentic security testing with Strix (https://github.com/usestrix/strix).
+#
+# Strix runs autonomous AI pentesting agents against the app. It needs Docker,
+# network access and an LLM provider, so it runs here on GitHub's runners
+# rather than locally.
+#
+# ---------------------------------------------------------------------------
+# To turn it on, add two repository secrets (Settings -> Secrets and variables
+# -> Actions):
+#
+#   STRIX_LLM     model name, e.g. openrouter/z-ai/glm-5.3
+#   LLM_API_KEY   your API key for that provider
+#
+# Until LLM_API_KEY exists the job skips cleanly instead of failing, so an
+# unconfigured repo never shows a red check.
+# ---------------------------------------------------------------------------
+#
+# Scans cost real LLM tokens, so this does NOT run on every push. It runs
+# weekly and whenever you start it by hand. To scan pull requests too, add
+# `pull_request:` under `on:` and use the `quick` mode.
+#
+# It is also non-blocking by design: `continue-on-error` keeps a finding from
+# failing the workflow, so this can never stand between you and a deploy.
+# Read the findings in the job summary and the uploaded artifact.
+
+name: Strix security scan
+
+on:
+  workflow_dispatch:
+    inputs:
+      scan_mode:
+        description: "quick (minutes) | standard (~30m) | deep (1-4h)"
+        type: choice
+        default: standard
+        options: [quick, standard, deep]
+      target:
+        description: "What to scan: the repository, or a running URL"
+        type: string
+        default: "./"
+  schedule:
+    # Sundays 02:17 UTC — off the hour, so it does not pile onto the rush of
+    # jobs every other repo schedules at :00.
+    - cron: "17 2 * * 0"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: strix-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    # A scan is long-running; stop it rather than let it sit on a runner.
+    timeout-minutes: 300
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Strix resolves changed-files diff scope from history in CI runs.
+          fetch-depth: 0
+
+      - name: Check whether Strix is configured
+        id: config
+        env:
+          LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+        run: |
+          if [ -n "$LLM_API_KEY" ]; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            {
+              echo "### Strix skipped"
+              echo
+              echo "No \`LLM_API_KEY\` secret is set, so there is nothing to run the agents with."
+              echo "Add \`STRIX_LLM\` and \`LLM_API_KEY\` under **Settings -> Secrets and variables -> Actions** to enable this scan."
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Install Strix
+        if: steps.config.outputs.configured == 'true'
+        run: curl -sSL https://strix.ai/install | bash
+
+      - name: Run agentic security scan
+        if: steps.config.outputs.configured == 'true'
+        id: scan
+        continue-on-error: true
+        env:
+          STRIX_LLM: ${{ secrets.STRIX_LLM }}
+          LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+        run: |
+          strix -n \
+            -t "${{ inputs.target || './' }}" \
+            --scan-mode "${{ inputs.scan_mode || 'standard' }}" \
+            --fail-on high
+
+      - name: Collect the report
+        if: steps.config.outputs.configured == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: strix-report-${{ github.run_id }}
+          path: |
+            strix-results/
+            *.sarif
+            *.json
+          if-no-files-found: ignore
+          retention-days: 30
+
+      - name: Summarise
+        if: steps.config.outputs.configured == 'true'
+        run: |
+          {
+            echo "### Strix scan finished"
+            echo
+            echo "- mode: \`${{ inputs.scan_mode || 'standard' }}\`"
+            echo "- target: \`${{ inputs.target || './' }}\`"
+            echo "- result: \`${{ steps.scan.outcome }}\` (exit 2 means findings at or above \`high\`)"
+            echo
+            echo "Findings below \`high\` still appear in the report, so a passing run is not necessarily finding-free."
+            echo "The full report is attached to this run as an artifact."
+          } >> "$GITHUB_STEP_SUMMARY"

@@ -783,3 +783,173 @@
     border-radius: 999px;
   }
 }
+
+/* ===========================================================================
+   Depth / 3D layer
+   ---------------------------------------------------------------------------
+   Built from the ui-ux-pro-max "3D & Hyperrealism" entry, taking its CSS route
+   (perspective, translate3d, multi-layer shadows) rather than its WebGL one.
+   That entry rates WebGL 3D cost:high and accessibility risk:high and requires
+   contrast-text-4.5, keyboard, visible-focus and reduced-motion — so the depth
+   here is built to survive all four: it is decoration layered behind content
+   that already passes contrast, it adds no focusable nodes, and every moving
+   part is gated on prefers-reduced-motion.
+
+   Three rules hold throughout:
+     - depth is painted, never positional: nothing moves out from under a tap
+       target, so the 44px hit areas and the no-horizontal-overflow guarantee
+       are untouched;
+     - only transform and opacity animate, so it stays on the compositor;
+     - forced-colors drops the lot (the OS palette wins) — see the block below.
+   =========================================================================== */
+
+@layer base {
+  :root {
+    --perspective: 1000px;
+    --depth-near: 14px;
+    --depth-far: -18px;
+    /* "Improved shadows (softer than flat, clearer than neumorphism)" — the
+       Soft UI Evolution entry's effect note, as a two-layer ramp. */
+    --shadow-lift:
+      0 1px 2px hsl(var(--brand-green-950) / 0.05),
+      0 6px 12px -6px hsl(var(--brand-green-950) / 0.12),
+      0 18px 36px -18px hsl(var(--brand-green-950) / 0.18);
+    --shadow-lift-raised:
+      0 2px 4px hsl(var(--brand-green-950) / 0.06),
+      0 12px 24px -8px hsl(var(--brand-green-950) / 0.16),
+      0 32px 64px -24px hsl(var(--brand-green-950) / 0.26);
+    --depth-ease: cubic-bezier(0.22, 1, 0.36, 1);
+    --depth-duration: 320ms;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --shadow-lift:
+        0 1px 2px hsl(0 0% 0% / 0.5),
+        0 6px 12px -6px hsl(0 0% 0% / 0.55),
+        0 18px 36px -18px hsl(0 0% 0% / 0.7);
+      --shadow-lift-raised:
+        0 2px 4px hsl(0 0% 0% / 0.55),
+        0 12px 24px -8px hsl(0 0% 0% / 0.6),
+        0 32px 64px -24px hsl(0 0% 0% / 0.8);
+    }
+  }
+}
+
+/* ---- the stage -----------------------------------------------------------
+   perspective has to sit on the PARENT of whatever is transformed, so it goes
+   on the grid that holds the cards rather than on a wrapper class. */
+
+.venue-facilities ul {
+  perspective: var(--perspective);
+}
+
+/* ---- hero: the photo sits forward of the copy ---------------------------- */
+
+.venue-hero .venue-photo {
+  box-shadow: var(--shadow-lift-raised);
+}
+
+/* ---- facility cards ------------------------------------------------------ */
+/* Each item becomes a surface that lifts toward the reader on hover/focus.
+   translate3d only — no width/height, no layout. */
+
+.venue-facilities li {
+  border-radius: var(--radius);
+  padding: 1.25rem 1rem 1.1rem;
+  background: hsl(var(--card) / 0.55);
+  border: 1px solid hsl(var(--border));
+  border-top: 1px solid hsl(var(--border));
+  box-shadow: var(--shadow-lift);
+  transform: translate3d(0, 0, 0);
+  will-change: transform;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .venue-facilities li {
+    transition:
+      transform var(--depth-duration) var(--depth-ease),
+      box-shadow var(--depth-duration) var(--depth-ease);
+  }
+
+  .venue-facilities li:hover,
+  .venue-facilities li:focus-within {
+    transform: translate3d(0, -4px, var(--depth-near));
+    box-shadow: var(--shadow-lift-raised);
+  }
+}
+
+/* ---- calendar card ------------------------------------------------------- */
+
+.venue-calendar-grid > :last-child {
+  transform: translate3d(0, 0, 0);
+}
+
+/* ---- parallax ------------------------------------------------------------
+   Two layers, not the five the style entry suggests: the UX guidance rates
+   motion sensitivity from parallax "High" severity, and two layers read as
+   depth without the drift that triggers it. Scroll-driven, so it is off the
+   main thread, and it animates a decorative pseudo-element — never content. */
+
+.venue-calendar {
+  position: relative;
+  isolation: isolate;
+  /* The wash below bleeds past this section's edges for a soft falloff, which
+     would otherwise widen the document and break the no-horizontal-scroll
+     guarantee at 390px. `clip` rather than `hidden`: it trims the overflow
+     without turning this into a scroll container. The access dialog inside is
+     opened with showModal(), so it lives in the top layer and is not clipped —
+     verified, not assumed. */
+  overflow: clip;
+}
+
+.venue-calendar::before {
+  content: "";
+  position: absolute;
+  inset: -10% -5%;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(42% 38% at 18% 22%, hsl(var(--brand-gold-500) / 0.1), transparent 70%),
+    radial-gradient(46% 42% at 82% 78%, hsl(var(--brand-green-700) / 0.12), transparent 72%);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  @supports ((animation-timeline: view()) and (animation-range: entry)) {
+    @keyframes depth-drift {
+      entry 0% {
+        transform: translate3d(0, 2.5%, 0) scale(1.04);
+      }
+      exit 100% {
+        transform: translate3d(0, -2.5%, 0) scale(1.04);
+      }
+    }
+
+    .venue-calendar::before {
+      animation: depth-drift auto linear both;
+      animation-timeline: view();
+    }
+  }
+}
+
+/* ---- forced colors -------------------------------------------------------
+   Shadows and gradients are dropped by the OS here, and the guidance is not to
+   lean on them for boundaries, so the cards fall back to a real border and the
+   decorative wash is removed outright. */
+
+@media (forced-colors: active) {
+  .venue-facilities li {
+    background: Canvas;
+    border: 1px solid CanvasText;
+    box-shadow: none;
+    transform: none;
+  }
+
+  .venue-calendar::before {
+    display: none;
+  }
+
+  .venue-hero .venue-photo {
+    box-shadow: none;
+  }
+}
