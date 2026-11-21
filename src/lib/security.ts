@@ -1,17 +1,15 @@
-/** Strip HTML tags and dangerous characters from user input */
-export function sanitizeInput(value: string): string {
-  return value
-    .replace(/<[^>]*>/g, '')
-    .replace(/[<>"'`]/g, '')
-    .trim();
-}
-
 /** Basic email validation */
 export function isValidEmail(email: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 }
 
-/** Simple client-side rate limiter keyed by action */
+/**
+ * Simple client-side rate limiter keyed by action.
+ *
+ * This only smooths accidental double-submits — it lives in page memory and is
+ * gone on reload, so it is not a defence against anyone deliberate. The real
+ * limits are enforced in Code.gs (MAX_PENDING_PER_CUSTOMER, CODE_SENDS_PER_WINDOW).
+ */
 const rateLimitMap = new Map<string, number[]>();
 
 export function checkRateLimit(key: string, maxCalls: number, windowMs: number): boolean {
@@ -21,16 +19,4 @@ export function checkRateLimit(key: string, maxCalls: number, windowMs: number):
   calls.push(now);
   rateLimitMap.set(key, calls);
   return true;
-}
-
-/** Mask sensitive strings for display (e.g. emails, phones) */
-export function maskEmail(email: string): string {
-  const [local, domain] = email.split('@');
-  if (!domain || local.length <= 2) return email;
-  return `${local[0]}${'*'.repeat(local.length - 2)}${local[local.length - 1]}@${domain}`;
-}
-
-export function maskPhone(phone: string): string {
-  if (phone.length < 7) return phone;
-  return `${phone.slice(0, 3)}${'*'.repeat(phone.length - 6)}${phone.slice(-3)}`;
 }
